@@ -31,6 +31,10 @@ importers:
         version: 3.2.7(@types/node@22.20.1)
 
   packages/host:
+    dependencies:
+      '@sanity-labs/secret-scan':
+        specifier: 1.1.0
+        version: 1.1.0
     devDependencies:
       '@types/node':
         specifier: ^22.15.30
@@ -42,9 +46,17 @@ importers:
         specifier: ^3.2.4
         version: 3.2.7(@types/node@22.20.1)
 
-  packages/runner: {}
+  packages/runner:
+    dependencies:
+      '@sanity-labs/secret-scan':
+        specifier: 1.1.0
+        version: 1.1.0
 
   packages/shared:
+    dependencies:
+      '@sanity-labs/secret-scan':
+        specifier: 1.1.0
+        version: 1.1.0
     devDependencies:
       typescript:
         specifier: ^5.8.3
@@ -338,6 +350,9 @@ packages:
     resolution: {integrity: sha512-BfzEnDJOt9T8M989/lA37EcJgat01wLRnoi5dQf3QzOH7jzpqTAzdDbVfRljVr5r+jzKqpbHeyOfAaXxAd0PAA==}
     cpu: [x64]
     os: [win32]
+
+  '@sanity-labs/secret-scan@1.1.0':
+    resolution: {integrity: sha512-hL1NgR9ClU+sMR5FTIa9mBeIhQLQmYasHW9w70xl+DRJB6zDStx6aJL2YGFcUs+bg9Jg3aUIz/i63W95Jo2p1A==}
 
   '@types/chai@5.2.3':
     resolution: {integrity: sha512-Mw558oeA9fFbv65/y4mHtXDs9bPnFMZAL/jxdPFUpOHHIXX91mcgEHbS5Lahr+pwZFR8A7GQleRWeI6cGFC2UA==}
@@ -758,6 +773,8 @@ snapshots:
 
   '@rollup/rollup-win32-x64-msvc@4.62.2':
     optional: true
+
+  '@sanity-labs/secret-scan@1.1.0': {}
 
   '@types/chai@5.2.3':
     dependencies:

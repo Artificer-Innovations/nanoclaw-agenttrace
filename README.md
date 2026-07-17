@@ -37,7 +37,7 @@ pnpm exec nanoclaw-agenttrace verify
 - Fail-closed: nothing is emitted unless `AGENTTRACE_ENABLED=true`
 - Never forwards thinking signatures or `redacted_thinking` data
 - **0.1.0 does not forward reasoning / chain-of-thought** (`reasoning_summary` deferred until summarized + redacted)
-- Redacts common secret patterns on the emit path (container writer + host delivery); truncates long text
+- Redacts secrets with [`@sanity-labs/secret-scan@1.1.0`](https://github.com/sanity-labs/secret-scan) (TruffleHog-derived rules; same library Skein uses) on the emit path (container writer + host delivery); truncates long text
 - Visibility: `off` \| `status` \| `trace` \| `trace_reasoning` (default `trace` when enabled)
 
 ## Related prior art

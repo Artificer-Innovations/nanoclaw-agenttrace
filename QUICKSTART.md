@@ -22,6 +22,8 @@ For reasoning summaries in the UI: deferred past 0.1.0 — `trace_reasoning` is 
 
 **Note:** install patches the Claude provider with `includePartialMessages: true` so stream deltas can be observed. That SDK option applies to every session once the patch is installed, even when `AGENTTRACE_ENABLED=false` (events are still not written unless enabled).
 
+The host wiring structural test (`agenttrace-wiring.test.ts`) imports the `typescript` package to walk the AST — NanoClaw forks already have it as a devDependency; keep it if you run host unit tests after install.
+
 ## 3. Build & restart
 
 ```bash

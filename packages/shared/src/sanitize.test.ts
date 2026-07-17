@@ -12,9 +12,13 @@ function ev(partial: Partial<AgentActivityEvent> & Pick<AgentActivityEvent, 'kin
 }
 
 describe('redactSecrets', () => {
-  it('redacts bearer tokens and sk- keys', () => {
-    expect(redactSecrets('Bearer abcdefghijklmnop')).toContain('[redacted]');
-    expect(redactSecrets('key sk-abcdefghijklmnopqrstuvwxyz')).toContain('[redacted]');
+  it('redacts GitHub and Anthropic tokens via secret-scan', () => {
+    const github = 'token ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefgh1234';
+    expect(redactSecrets(github)).toContain('[redacted]');
+    expect(redactSecrets(github)).not.toContain('ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefgh1234');
+
+    const anthropic = 'key sk-ant-api03-abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwx';
+    expect(redactSecrets(anthropic)).toContain('[redacted]');
   });
 });
 

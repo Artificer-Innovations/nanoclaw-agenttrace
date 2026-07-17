@@ -54,6 +54,7 @@ function stickyKey(dest: ActivityDestination): string {
  * Publish one activity event to the destination channel.
  * Degradation ladder: publishActivity → edit-in-place → setTyping → silent.
  * turn_end always clears rich UIs (clearActivity) after publish when available.
+ * Throws from a higher rung fall through to the next (never abort the ladder).
  */
 export async function dispatchActivity(
   dest: ActivityDestination,
@@ -69,11 +70,19 @@ export async function dispatchActivity(
   }
 
   if (typeof adapter.publishActivity === 'function') {
-    await adapter.publishActivity(dest.platformId, dest.threadId, event);
-    if (event.kind === 'turn_end' && typeof adapter.clearActivity === 'function') {
-      await adapter.clearActivity(dest.platformId, dest.threadId, event.turnId);
+    try {
+      await adapter.publishActivity(dest.platformId, dest.threadId, event);
+      if (event.kind === 'turn_end' && typeof adapter.clearActivity === 'function') {
+        try {
+          await adapter.clearActivity(dest.platformId, dest.threadId, event.turnId);
+        } catch (err) {
+          log.warn('agenttrace: clearActivity failed after publish', { err });
+        }
+      }
+      return;
+    } catch (err) {
+      log.warn('agenttrace: publishActivity failed, falling back', { err });
     }
-    return;
   }
 
   const sticky = stickyMapFor(adapter);
@@ -112,12 +121,20 @@ export async function dispatchActivity(
   if (event.kind === 'turn_end') {
     sticky.delete(key);
     if (typeof adapter.clearActivity === 'function') {
-      await adapter.clearActivity(dest.platformId, dest.threadId, event.turnId);
-      return;
+      try {
+        await adapter.clearActivity(dest.platformId, dest.threadId, event.turnId);
+        return;
+      } catch (err) {
+        log.warn('agenttrace: clearActivity failed', { err });
+      }
     }
   }
 
   if (typeof adapter.setTyping === 'function' && event.kind !== 'turn_end') {
-    await adapter.setTyping(dest.platformId, dest.threadId);
+    try {
+      await adapter.setTyping(dest.platformId, dest.threadId);
+    } catch (err) {
+      log.warn('agenttrace: setTyping failed', { err });
+    }
   }
 }

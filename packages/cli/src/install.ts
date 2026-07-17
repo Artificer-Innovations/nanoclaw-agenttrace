@@ -3,6 +3,7 @@ import path from 'node:path';
 import {
   copyHostFiles,
   copyRunnerFiles,
+  ensureSecretScanDependency,
   hasAgentTraceBootBlock,
   insertAgentTraceBootBlock,
   patchClaudeProvider,
@@ -32,6 +33,7 @@ export interface InstallResult {
   claudePatched: boolean;
   pollPatched: boolean;
   env: { created: string[]; skipped: string[] };
+  secretScan: { hostAdded: boolean; runnerAdded: boolean };
   version: string;
   skillPath: string;
   webchatDetected: boolean;
@@ -47,6 +49,7 @@ export function runInstall(root?: string): InstallResult {
   const claudePatched = patchClaudeProvider(nanoclawRoot);
   const pollPatched = patchPollLoop(nanoclawRoot);
   const env = scaffoldEnv(nanoclawRoot);
+  const secretScan = ensureSecretScanDependency(nanoclawRoot);
   const webchatDetected =
     fs.existsSync(path.join(nanoclawRoot, 'src/channels/web.ts')) ||
     fs.existsSync(path.join(nanoclawRoot, 'src/webchat-boot.ts'));
@@ -58,6 +61,7 @@ export function runInstall(root?: string): InstallResult {
     claudePatched,
     pollPatched,
     env,
+    secretScan,
     version: readPackageVersion(),
     skillPath,
     webchatDetected,
@@ -133,12 +137,21 @@ export function runVerify(root?: string): {
   return { root: nanoclawRoot, ok: issues.length === 0, issues };
 }
 
-export function printInstallNextSteps(result: InstallResult): void {
-  console.log(`Installed nanoclaw-agenttrace@${result.version} into ${result.root}`);
+export function printInstallNextSteps(
+  result: InstallResult,
+  opts: { upgraded?: boolean } = {},
+): void {
+  const verb = opts.upgraded ? 'Upgraded' : 'Installed';
+  console.log(`${verb} nanoclaw-agenttrace@${result.version} into ${result.root}`);
   console.log(`Copied ${result.copied.length} files.`);
   console.log(`Synced skill → ${result.skillPath}`);
   if (result.env.created.length > 0) {
     console.log(`Added .env: ${result.env.created.join(', ')}`);
+  }
+  if (result.secretScan.hostAdded || result.secretScan.runnerAdded) {
+    console.log(
+      'Pinned @sanity-labs/secret-scan@1.1.0 (host + agent-runner) for activity redaction.',
+    );
   }
   if (result.webchatDetected) {
     console.log('\nDetected nanoclaw-webchat — for a rich timeline UI, use a webchat build');
@@ -146,8 +159,9 @@ export function printInstallNextSteps(result: InstallResult): void {
   }
   console.log('\nNext steps:');
   console.log('  1. Set AGENTTRACE_ENABLED=true in .env (ships disabled / fail-closed).');
-  console.log('  2. pnpm run build');
-  console.log('  3. ./container/build.sh   # required — runner patches live in the image');
-  console.log('  4. pnpm exec nanoclaw-agenttrace verify');
-  console.log('  5. # restart your NanoClaw host service');
+  console.log('  2. pnpm install && (cd container/agent-runner && bun install)');
+  console.log('  3. pnpm run build');
+  console.log('  4. ./container/build.sh   # required — runner patches live in the image');
+  console.log('  5. pnpm exec nanoclaw-agenttrace verify');
+  console.log('  6. # restart your NanoClaw host service');
 }

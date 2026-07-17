@@ -77,6 +77,16 @@ describe('dispatchActivity', () => {
     expect(setTyping).toHaveBeenCalledOnce();
   });
 
+  it('falls back when publishActivity throws', async () => {
+    publishActivity.mockRejectedValueOnce(new Error('db locked'));
+    await dispatchActivity(
+      { channelType: 'web', platformId: 'lobby', threadId: 'main', instance: 'web' },
+      baseEvent,
+    );
+    // web adapter mock has no deliver/setTyping — just must not throw
+    expect(publishActivity).toHaveBeenCalledOnce();
+  });
+
   it('is silent when no capabilities exist', async () => {
     await dispatchActivity(
       { channelType: 'silent', platformId: 'x', threadId: null, instance: 'silent' },

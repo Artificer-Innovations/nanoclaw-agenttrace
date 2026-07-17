@@ -1,25 +1,19 @@
 /**
- * Inlined secret redaction + truncation for the container runner.
- * Keep in sync with packages/shared/src/sanitize.ts (no runtime shared dep in Bun tree).
+ * Secret redaction + truncation for the container runner.
+ * Uses @sanity-labs/secret-scan (same library as SkeinAI).
+ * Installed at container/agent-runner/src/agenttrace/sanitize.ts
  */
+import { redact } from '@sanity-labs/secret-scan';
 import type { AgentActivityEvent } from './types.js';
 
 const MAX_EVENT_TEXT_BYTES = 4_000;
 
-const SECRET_PATTERNS: RegExp[] = [
-  /\bsk-[a-zA-Z0-9]{20,}\b/g,
-  /\bBearer\s+[A-Za-z0-9._\-]+\b/gi,
-  /\bAKIA[0-9A-Z]{16}\b/g,
-  /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/g,
-  /\b(?:api[_-]?key|token|password|secret)\s*[:=]\s*['"]?[^\s'"]{8,}/gi,
-];
-
 export function redactSecrets(text: string): string {
-  let out = text;
-  for (const re of SECRET_PATTERNS) {
-    out = out.replace(re, '[redacted]');
+  try {
+    return redact(text, () => '[redacted]');
+  } catch {
+    return text;
   }
-  return out;
 }
 
 export function truncateUtf8(text: string, maxBytes: number = MAX_EVENT_TEXT_BYTES): string {

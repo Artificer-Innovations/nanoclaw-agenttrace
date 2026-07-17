@@ -16,6 +16,8 @@ function parseArgs(argv: string[]): { command: string; path?: string } {
   const args = argv.slice(2);
   const command = args[0] ?? 'help';
   let pathArg: string | undefined;
+  // Unknown flags are ignored intentionally — keep the CLI tolerant until
+  // we grow a real options surface; only `--path <dir>` is recognized today.
   for (let i = 1; i < args.length; i += 1) {
     if (args[i] === '--path' && args[i + 1]) {
       pathArg = args[i + 1];
@@ -37,7 +39,7 @@ export function runCommand(argv: string[]): number {
       }
       case 'upgrade': {
         const result = runUpgrade(pathArg);
-        printInstallNextSteps(result);
+        printInstallNextSteps(result, { upgraded: true });
         return 0;
       }
       case 'sync-skill': {

@@ -277,6 +277,43 @@ export function scaffoldEnv(nanoclawRoot: string): { created: string[]; skipped:
   return { created, skipped };
 }
 
+/** Pin used by host + container redaction (same library/version as SkeinAI). */
+export const SECRET_SCAN_PACKAGE = '@sanity-labs/secret-scan';
+export const SECRET_SCAN_VERSION = '1.1.0';
+
+/**
+ * Ensure host + agent-runner package.json declare the secret-scan dependency.
+ * Caller still needs `pnpm install` / `bun install` to fetch it.
+ */
+export function ensureSecretScanDependency(nanoclawRoot: string): {
+  hostAdded: boolean;
+  runnerAdded: boolean;
+} {
+  const hostAdded = ensureDepInPackageJson(
+    path.join(nanoclawRoot, 'package.json'),
+    SECRET_SCAN_PACKAGE,
+    SECRET_SCAN_VERSION,
+  );
+  const runnerAdded = ensureDepInPackageJson(
+    path.join(nanoclawRoot, 'container/agent-runner/package.json'),
+    SECRET_SCAN_PACKAGE,
+    SECRET_SCAN_VERSION,
+  );
+  return { hostAdded, runnerAdded };
+}
+
+function ensureDepInPackageJson(pkgPath: string, name: string, version: string): boolean {
+  if (!fs.existsSync(pkgPath)) return false;
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8')) as {
+    dependencies?: Record<string, string>;
+  };
+  pkg.dependencies ??= {};
+  if (pkg.dependencies[name] === version) return false;
+  pkg.dependencies[name] = version;
+  fs.writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
+  return true;
+}
+
 export function removeEnvVars(nanoclawRoot: string): string[] {
   const envPath = path.join(nanoclawRoot, '.env');
   if (!fs.existsSync(envPath)) return [];

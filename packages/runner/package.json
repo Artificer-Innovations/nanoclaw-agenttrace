@@ -6,5 +6,8 @@
   "type": "module",
   "scripts": {
     "test:unit": "echo 'runner tests run under bun in the composed NanoClaw tree'"
+  },
+  "dependencies": {
+    "@sanity-labs/secret-scan": "1.1.0"
   }
 }

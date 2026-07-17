@@ -1,17 +1,10 @@
+import { redact } from '@sanity-labs/secret-scan';
 import {
   MAX_EVENT_TEXT_BYTES,
   type ActivityVisibility,
   type AgentActivityEvent,
   type AgentActivityKind,
 } from './types.js';
-
-const SECRET_PATTERNS: RegExp[] = [
-  /\bsk-[a-zA-Z0-9]{20,}\b/g,
-  /\bBearer\s+[A-Za-z0-9._\-]+\b/gi,
-  /\bAKIA[0-9A-Z]{16}\b/g,
-  /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/g,
-  /\b(?:api[_-]?key|token|password|secret)\s*[:=]\s*['"]?[^\s'"]{8,}/gi,
-];
 
 const BLOCKED_KINDS_BY_VISIBILITY: Record<ActivityVisibility, Set<AgentActivityKind>> = {
   off: new Set([
@@ -33,19 +26,20 @@ const BLOCKED_KINDS_BY_VISIBILITY: Record<ActivityVisibility, Set<AgentActivityK
   trace_reasoning: new Set(),
 };
 
+/** Redact secrets via @sanity-labs/secret-scan (TruffleHog-derived rules; same as Skein). */
 export function redactSecrets(text: string): string {
-  let out = text;
-  for (const re of SECRET_PATTERNS) {
-    out = out.replace(re, '[redacted]');
+  try {
+    return redact(text, () => '[redacted]');
+  } catch {
+    return text;
   }
-  return out;
 }
 
 export function truncateUtf8(text: string, maxBytes: number = MAX_EVENT_TEXT_BYTES): string {
   const buf = Buffer.from(text, 'utf8');
   if (buf.length <= maxBytes) return text;
   let end = maxBytes;
-  while (end > 0 && (buf[end] & 0xc0) === 0x80) end -= 1;
+  while (end > 0 && (buf[end]! & 0xc0) === 0x80) end -= 1;
   return `${buf.subarray(0, end).toString('utf8')}…`;
 }
 

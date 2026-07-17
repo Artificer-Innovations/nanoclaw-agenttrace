@@ -56,13 +56,17 @@ publishActivity?(platformId: string, threadId: string | null, event: AgentActivi
 clearActivity?(platformId: string, threadId: string | null, turnId?: string): Promise<void>
 ```
 
-Fallback ladder when `publishActivity` is absent:
+Fallback ladder when `publishActivity` is absent (or throws):
 
 1. `deliver` with sticky `operation: 'edit'` status text
 2. `setTyping`
 3. silent
 
+Throws from a higher rung fall through to the next — telemetry must not abort delivery.
+
 When `publishActivity` **is** present, `turn_end` still calls `clearActivity` afterward (if implemented) so rich UIs get an explicit clear signal.
+
+**Destination:** host delivery always resolves the channel from `session.messaging_group_id` (never from content-supplied `platform_id` / `channel_type`). Content routing fields on the outbound row are informational only.
 
 ## WebSocket events (nanoclaw-webchat)
 

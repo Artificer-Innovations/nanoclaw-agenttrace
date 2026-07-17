@@ -2,8 +2,10 @@
  * Minimal shared helpers inlined into the host adapter so the fork does not
  * need a runtime dependency on @nanoclaw-agenttrace/shared.
  *
- * Keep in sync with packages/shared/src/{types,sanitize}.ts
+ * Secret redaction uses @sanity-labs/secret-scan (same as SkeinAI).
+ * Keep formatStatusLine in sync with packages/shared/src/sanitize.ts.
  */
+import { redact } from '@sanity-labs/secret-scan';
 
 export type ActivityVisibility = 'off' | 'status' | 'trace' | 'trace_reasoning';
 
@@ -41,14 +43,6 @@ export const SILENCE_KEEPALIVE_THRESHOLDS_MS = [30_000, 90_000, 180_000] as cons
 
 const MAX_EVENT_TEXT_BYTES = 4_000;
 
-const SECRET_PATTERNS: RegExp[] = [
-  /\bsk-[a-zA-Z0-9]{20,}\b/g,
-  /\bBearer\s+[A-Za-z0-9._\-]+\b/gi,
-  /\bAKIA[0-9A-Z]{16}\b/g,
-  /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/g,
-  /\b(?:api[_-]?key|token|password|secret)\s*[:=]\s*['"]?[^\s'"]{8,}/gi,
-];
-
 export function parseVisibility(raw: unknown): ActivityVisibility {
   if (raw === 'off' || raw === 'status' || raw === 'trace' || raw === 'trace_reasoning') {
     return raw;
@@ -57,11 +51,11 @@ export function parseVisibility(raw: unknown): ActivityVisibility {
 }
 
 export function redactSecrets(text: string): string {
-  let out = text;
-  for (const re of SECRET_PATTERNS) {
-    out = out.replace(re, '[redacted]');
+  try {
+    return redact(text, () => '[redacted]');
+  } catch {
+    return text;
   }
-  return out;
 }
 
 export function truncateUtf8(text: string, maxBytes: number = MAX_EVENT_TEXT_BYTES): string {

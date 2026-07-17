@@ -27,6 +27,9 @@ const PRESERVE_KINDS: Set<AgentActivityKind> = new Set([
 ]);
 
 const turnCounts = new Map<string, number>();
+/** Message ids written per turn — enables O(1) prune without scanning messages_out. */
+const turnMessageIds = new Map<string, string[]>();
+const MAX_TRACKED_TURNS = MAX_COMPLETED_TURNS * 2;
 
 export function writeActivityEvent(event: AgentActivityEvent): void {
   const sanitized = sanitizeActivityEvent(event);
@@ -39,9 +42,10 @@ export function writeActivityEvent(event: AgentActivityEvent): void {
   turnCounts.set(sanitized.turnId, n + 1);
 
   const routing = getSessionRouting();
+  const id = `agenttrace-${randomUUID()}`;
 
   writeMessageOut({
-    id: `agenttrace-${randomUUID()}`,
+    id,
     kind: 'system',
     platform_id: routing.platform_id,
     channel_type: routing.channel_type,
@@ -49,61 +53,51 @@ export function writeActivityEvent(event: AgentActivityEvent): void {
     content: JSON.stringify({
       action: AGENTTRACE_ACTION,
       event: sanitized,
-      // Duplicate routing for host resolver convenience
+      // Duplicate routing for host resolver convenience (host ignores these
+      // for destination — session messaging group is authoritative).
       channel_type: routing.channel_type,
       platform_id: routing.platform_id,
       thread_id: routing.thread_id,
     }),
   });
 
+  const ids = turnMessageIds.get(sanitized.turnId) ?? [];
+  ids.push(id);
+  turnMessageIds.set(sanitized.turnId, ids);
+
   if (sanitized.kind === 'turn_end') {
-    pruneOldActivity(sanitized.turnId);
+    pruneCompletedTurns(sanitized.turnId);
+  }
+  evictOrphanBookkeeping(sanitized.turnId);
+}
+
+function pruneCompletedTurns(keepTurnId: string): void {
+  const keys = [...turnMessageIds.keys()];
+  if (keys.length <= MAX_COMPLETED_TURNS) return;
+  const dropCount = keys.length - MAX_COMPLETED_TURNS;
+  const drop = keys.slice(0, dropCount).filter((k) => k !== keepTurnId);
+  if (drop.length === 0) return;
+
+  try {
+    const db = getOutboundDb();
+    for (const tid of drop) {
+      for (const mid of turnMessageIds.get(tid) ?? []) {
+        db.prepare('DELETE FROM messages_out WHERE id = ?').run(mid);
+      }
+      turnMessageIds.delete(tid);
+      turnCounts.delete(tid);
+    }
+  } catch {
+    /* best-effort prune */
   }
 }
 
-function pruneOldActivity(keepTurnId: string): void {
-  try {
-    const db = getOutboundDb();
-    // Delete oldest activity system rows beyond retention, keeping current turn
-    const rows = db
-      .prepare(
-        `SELECT id, content FROM messages_out
-         WHERE kind = 'system' AND content LIKE '%"action":"agenttrace_activity"%'
-         ORDER BY timestamp DESC`,
-      )
-      .all() as Array<{ id: string; content: string }>;
-
-    const turnIds: string[] = [];
-    const seen = new Set<string>();
-    for (const row of rows) {
-      try {
-        const parsed = JSON.parse(row.content) as { event?: { turnId?: string } };
-        const tid = parsed.event?.turnId;
-        if (!tid || seen.has(tid)) continue;
-        seen.add(tid);
-        turnIds.push(tid);
-      } catch {
-        /* skip */
-      }
-    }
-
-    if (turnIds.length <= MAX_COMPLETED_TURNS) return;
-    const drop = new Set(turnIds.slice(MAX_COMPLETED_TURNS));
-    drop.delete(keepTurnId);
-
-    for (const row of rows) {
-      try {
-        const parsed = JSON.parse(row.content) as { event?: { turnId?: string } };
-        if (parsed.event?.turnId && drop.has(parsed.event.turnId)) {
-          db.prepare('DELETE FROM messages_out WHERE id = ?').run(row.id);
-        }
-      } catch {
-        /* skip */
-      }
-    }
-
-    for (const tid of drop) turnCounts.delete(tid);
-  } catch {
-    /* best-effort prune */
+/** Bound in-memory maps even when turns never emit turn_end (crash/kill). */
+function evictOrphanBookkeeping(keepTurnId: string): void {
+  while (turnCounts.size > MAX_TRACKED_TURNS) {
+    const oldest = turnCounts.keys().next().value;
+    if (!oldest || oldest === keepTurnId) break;
+    turnCounts.delete(oldest);
+    turnMessageIds.delete(oldest);
   }
 }

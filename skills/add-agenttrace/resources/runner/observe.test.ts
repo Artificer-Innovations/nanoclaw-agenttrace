@@ -81,12 +81,12 @@ describe('observeClaudeSdkMessage', () => {
 
     observeClaudeSdkMessage({
       type: 'tool_use_summary',
-      summary: 'Using key sk-abcdefghijklmnopqrstuvwxyz123456',
+      summary: 'Using key ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefgh1234',
     });
 
     expect(writes.length).toBeGreaterThan(0);
     const content = JSON.parse((writes[0] as { content: string }).content);
     expect(content.event.summary).toContain('[redacted]');
-    expect(content.event.summary).not.toContain('sk-abcdefghijklmnopqrstuvwxyz123456');
+    expect(content.event.summary).not.toContain('ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefgh1234');
   });
 });

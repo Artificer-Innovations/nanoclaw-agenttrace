@@ -5,7 +5,7 @@
 import type Database from 'better-sqlite3';
 import { registerDeliveryAction } from './delivery.js';
 import { unguarded } from './guard/index.js';
-import { getAgentGroup, getMessagingGroup, getMessagingGroupByPlatform } from './db/index.js';
+import { getAgentGroup, getMessagingGroup } from './db/index.js';
 import { log } from './log.js';
 import type { Session } from './types.js';
 import { dispatchActivity } from './agenttrace-dispatch.js';
@@ -29,7 +29,7 @@ export function registerAgentTraceDelivery(): void {
 
       noteActivitySeen(session.id);
 
-      const dest = resolveDestination(session, content);
+      const dest = resolveDestination(session);
       if (!dest) {
         log.warn('agenttrace_activity: could not resolve destination', { sessionId: session.id });
         return;
@@ -37,7 +37,9 @@ export function registerAgentTraceDelivery(): void {
 
       await dispatchActivity(dest, sanitizeActivityEvent(enrichWithAgentIdentity(session, event)));
     },
-    unguarded('agent activity telemetry — no privileged side effects'),
+    // Destination is strictly the session's messaging group — never content-controlled —
+    // so deliver()/publishActivity can only touch that session's own thread.
+    unguarded('session-scoped agent activity telemetry'),
   );
 }
 
@@ -52,40 +54,10 @@ function enrichWithAgentIdentity(session: Session, event: AgentActivityEvent): A
   };
 }
 
+/** Always resolve from the session's messaging group — ignore content routing fields. */
 function resolveDestination(
   session: Session,
-  content: Record<string, unknown>,
 ): { channelType: string; platformId: string; threadId: string | null; instance?: string } | null {
-  // Prefer routing fields on the outbound row (passed through content by writer)
-  const channelType =
-    (typeof content.channel_type === 'string' && content.channel_type) ||
-    (typeof content.channelType === 'string' && content.channelType) ||
-    null;
-  const platformId =
-    (typeof content.platform_id === 'string' && content.platform_id) ||
-    (typeof content.platformId === 'string' && content.platformId) ||
-    null;
-  const threadId =
-    typeof content.thread_id === 'string'
-      ? content.thread_id
-      : typeof content.threadId === 'string'
-        ? content.threadId
-        : session.thread_id;
-
-  if (channelType && platformId) {
-    const originMg = session.messaging_group_id ? getMessagingGroup(session.messaging_group_id) : undefined;
-    const mg =
-      originMg && originMg.channel_type === channelType && originMg.platform_id === platformId
-        ? originMg
-        : getMessagingGroupByPlatform(channelType, platformId);
-    return {
-      channelType,
-      platformId,
-      threadId: threadId ?? null,
-      instance: mg?.instance,
-    };
-  }
-
   if (!session.messaging_group_id) return null;
   const mg = getMessagingGroup(session.messaging_group_id);
   if (!mg) return null;
