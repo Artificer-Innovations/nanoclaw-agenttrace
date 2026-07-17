@@ -1,0 +1,16 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@3.1.1/schema.json",
+  "changelog": ["@changesets/changelog-github", { "repo": "Artificer-Innovations/nanoclaw-agenttrace" }],
+  "commit": false,
+  "fixed": [],
+  "linked": [],
+  "access": "public",
+  "baseBranch": "develop",
+  "updateInternalDependencies": "patch",
+  "ignore": [
+    "@nanoclaw-agenttrace/cli",
+    "@nanoclaw-agenttrace/host",
+    "@nanoclaw-agenttrace/runner",
+    "@nanoclaw-agenttrace/shared"
+  ]
+}
