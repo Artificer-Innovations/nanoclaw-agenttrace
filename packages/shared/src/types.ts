@@ -38,6 +38,10 @@ export interface AgentActivityEvent {
   replaceKey?: string;
   /** True when this is a silence-timer synthetic keepalive (#1440). */
   keepalive?: boolean;
+  /** Display name of the agent group producing this event (enriched on host). */
+  agentName?: string;
+  /** Agent group folder id (enriched on host; used for multi-agent UI). */
+  agentFolder?: string;
 }
 
 /** System action name registered with NanoClaw delivery. */

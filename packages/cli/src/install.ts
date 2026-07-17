@@ -135,8 +135,8 @@ export function printInstallNextSteps(result: InstallResult): void {
     console.log(`Added .env: ${result.env.created.join(', ')}`);
   }
   if (result.webchatDetected) {
-    console.log('\nDetected nanoclaw-webchat — for a rich timeline UI, use webchat ≥ 0.3.1');
-    console.log('(publishActivity + activity WS). Local: pnpm webchat:local');
+    console.log('\nDetected nanoclaw-webchat — for a rich timeline UI, use webchat ≥ 0.3.2');
+    console.log('(per-agent live rows + typing bubbles). Local: pnpm webchat:local');
   }
   console.log('\nNext steps:');
   console.log('  1. Set AGENTTRACE_ENABLED=true in .env (ships disabled / fail-closed).');

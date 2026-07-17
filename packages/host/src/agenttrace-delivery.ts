@@ -5,7 +5,7 @@
 import type Database from 'better-sqlite3';
 import { registerDeliveryAction } from './delivery.js';
 import { unguarded } from './guard/index.js';
-import { getMessagingGroup, getMessagingGroupByPlatform } from './db/index.js';
+import { getAgentGroup, getMessagingGroup, getMessagingGroupByPlatform } from './db/index.js';
 import { log } from './log.js';
 import type { Session } from './types.js';
 import { dispatchActivity } from './agenttrace-dispatch.js';
@@ -35,10 +35,21 @@ export function registerAgentTraceDelivery(): void {
         return;
       }
 
-      await dispatchActivity(dest, event);
+      await dispatchActivity(dest, enrichWithAgentIdentity(session, event));
     },
     unguarded('agent activity telemetry — no privileged side effects'),
   );
+}
+
+function enrichWithAgentIdentity(session: Session, event: AgentActivityEvent): AgentActivityEvent {
+  if (event.agentName && event.agentFolder) return event;
+  const agent = getAgentGroup(session.agent_group_id);
+  if (!agent) return event;
+  return {
+    ...event,
+    agentName: event.agentName || agent.name,
+    agentFolder: event.agentFolder || agent.folder,
+  };
 }
 
 function resolveDestination(

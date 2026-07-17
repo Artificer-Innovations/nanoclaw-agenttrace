@@ -62,6 +62,11 @@ async function tick(): Promise<void> {
 
       const tool = readCurrentTool(session.agent_group_id, session.id);
       const summary = tool || 'Working';
+      const mg = session.messaging_group_id ? getMessagingGroup(session.messaging_group_id) : undefined;
+      if (!mg) continue;
+      const agent = getAgentGroup(session.agent_group_id);
+      if (!agent) continue;
+
       const event: AgentActivityEvent = {
         turnId: `keepalive:${session.id}`,
         seq: threshold,
@@ -71,12 +76,9 @@ async function tick(): Promise<void> {
         tool: tool ?? undefined,
         replaceKey: `keepalive:${session.id}`,
         keepalive: true,
+        agentName: agent.name,
+        agentFolder: agent.folder,
       };
-
-      const mg = session.messaging_group_id ? getMessagingGroup(session.messaging_group_id) : undefined;
-      if (!mg) continue;
-      const agent = getAgentGroup(session.agent_group_id);
-      if (!agent) continue;
 
       await dispatchActivity(
         {

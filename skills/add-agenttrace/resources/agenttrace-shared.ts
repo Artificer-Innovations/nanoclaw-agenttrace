@@ -31,6 +31,8 @@ export interface AgentActivityEvent {
   tool?: string;
   replaceKey?: string;
   keepalive?: boolean;
+  agentName?: string;
+  agentFolder?: string;
 }
 
 export const AGENTTRACE_ACTION = 'agenttrace_activity' as const;
