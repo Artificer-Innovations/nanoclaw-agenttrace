@@ -1,0 +1,45 @@
+{
+  "name": "nanoclaw-agenttrace",
+  "version": "0.1.0",
+  "description": "Live agent activity traces for NanoClaw — tools, tasks, reasoning summaries, and silence keepalives",
+  "type": "module",
+  "license": "MIT",
+  "author": "Artificer Innovations, LLC",
+  "keywords": [
+    "nanoclaw",
+    "ai-agent",
+    "activity-trace",
+    "thinking",
+    "progress"
+  ],
+  "bin": {
+    "nanoclaw-agenttrace": "./dist/cli/bin.js"
+  },
+  "files": [
+    "dist",
+    "skills",
+    "api-contract.md",
+    "README.md",
+    "QUICKSTART.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "pnpm --filter @nanoclaw-agenttrace/shared build && pnpm --filter @nanoclaw-agenttrace/cli build && node scripts/sync-resources.mjs",
+    "typecheck": "pnpm -r typecheck",
+    "test:unit": "pnpm -r test:unit",
+    "prepublishOnly": "pnpm run build"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.30",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  },
+  "packageManager": "pnpm@9.15.0"
+}

@@ -1,0 +1,13 @@
+{
+  "name": "@nanoclaw-agenttrace/runner",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Container agent-runner patches for agenttrace",
+  "type": "module",
+  "scripts": {
+    "test:unit": "echo 'runner tests run under bun in the composed NanoClaw tree'"
+  },
+  "dependencies": {
+    "@sanity-labs/secret-scan": "1.1.0"
+  }
+}
