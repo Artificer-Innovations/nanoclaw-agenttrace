@@ -94,12 +94,14 @@ export const HOST_COPY_RULES: CopyRule[] = [
   { source: 'agenttrace-delivery.ts', dest: 'src/agenttrace-delivery.ts' },
   { source: 'agenttrace-silence.ts', dest: 'src/agenttrace-silence.ts' },
   { source: 'agenttrace-boot.ts', dest: 'src/agenttrace-boot.ts' },
+  { source: 'agenttrace-env.ts', dest: 'src/agenttrace-env.ts' },
 ];
 
 export const HOST_OPTIONAL_COPY_RULES: CopyRule[] = [
   { source: 'agenttrace-config.test.ts', dest: 'src/agenttrace-config.test.ts' },
   { source: 'agenttrace-wiring.test.ts', dest: 'src/agenttrace-wiring.test.ts' },
   { source: 'agenttrace-dispatch.test.ts', dest: 'src/agenttrace-dispatch.test.ts' },
+  { source: 'agenttrace-env.test.ts', dest: 'src/agenttrace-env.test.ts' },
 ];
 
 export const RUNNER_COPY_RULES: CopyRule[] = [
@@ -127,6 +129,8 @@ export const CLAUDE_PARTIAL_MARKER_BEGIN = '// @nanoclaw-agenttrace-partial-begi
 export const CLAUDE_PARTIAL_MARKER_END = '// @nanoclaw-agenttrace-partial-end';
 export const POLL_HOOK_MARKER_BEGIN = '// @nanoclaw-agenttrace-poll-begin';
 export const POLL_HOOK_MARKER_END = '// @nanoclaw-agenttrace-poll-end';
+export const CONTAINER_ENV_MARKER_BEGIN = '// @nanoclaw-agenttrace-env-begin';
+export const CONTAINER_ENV_MARKER_END = '// @nanoclaw-agenttrace-env-end';
 
 export function findNanoclawRoot(start = process.cwd()): string {
   let dir = path.resolve(start);

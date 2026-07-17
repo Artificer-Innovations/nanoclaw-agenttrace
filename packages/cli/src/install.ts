@@ -7,6 +7,7 @@ import {
   hasAgentTraceBootBlock,
   insertAgentTraceBootBlock,
   patchClaudeProvider,
+  patchContainerRunner,
   patchPollLoop,
   removeAgentTraceBootBlock,
   removeEnvVars,
@@ -15,6 +16,7 @@ import {
   scaffoldEnv,
   syncSkillToFork,
   unpatchClaudeProvider,
+  unpatchContainerRunner,
   unpatchPollLoop,
 } from './patch.js';
 import {
@@ -23,6 +25,7 @@ import {
   REQUIRED_HOST_FILES,
   REQUIRED_RUNNER_FILES,
   CLAUDE_OBSERVE_MARKER_BEGIN,
+  CONTAINER_ENV_MARKER_BEGIN,
   POLL_HOOK_MARKER_BEGIN,
 } from './paths.js';
 
@@ -32,6 +35,7 @@ export interface InstallResult {
   bootPatched: boolean;
   claudePatched: boolean;
   pollPatched: boolean;
+  containerEnvPatched: boolean;
   env: { created: string[]; skipped: string[] };
   secretScan: { hostAdded: boolean; runnerAdded: boolean };
   version: string;
@@ -48,6 +52,7 @@ export function runInstall(root?: string): InstallResult {
   const bootPatched = insertAgentTraceBootBlock(nanoclawRoot);
   const claudePatched = patchClaudeProvider(nanoclawRoot);
   const pollPatched = patchPollLoop(nanoclawRoot);
+  const containerEnvPatched = patchContainerRunner(nanoclawRoot);
   const env = scaffoldEnv(nanoclawRoot);
   const secretScan = ensureSecretScanDependency(nanoclawRoot);
   const webchatDetected =
@@ -60,6 +65,7 @@ export function runInstall(root?: string): InstallResult {
     bootPatched,
     claudePatched,
     pollPatched,
+    containerEnvPatched,
     env,
     secretScan,
     version: readPackageVersion(),
@@ -78,6 +84,7 @@ export function runUninstall(root?: string): {
   bootRemoved: boolean;
   claudeUnpatched: boolean;
   pollUnpatched: boolean;
+  containerEnvUnpatched: boolean;
   envRemoved: string[];
 } {
   const nanoclawRoot = root ?? findNanoclawRoot();
@@ -85,6 +92,7 @@ export function runUninstall(root?: string): {
   const bootRemoved = removeAgentTraceBootBlock(nanoclawRoot);
   const claudeUnpatched = unpatchClaudeProvider(nanoclawRoot);
   const pollUnpatched = unpatchPollLoop(nanoclawRoot);
+  const containerEnvUnpatched = unpatchContainerRunner(nanoclawRoot);
   const envRemoved = removeEnvVars(nanoclawRoot);
 
   const skillDest = path.join(nanoclawRoot, '.claude/skills/add-agenttrace');
@@ -99,6 +107,7 @@ export function runUninstall(root?: string): {
     bootRemoved,
     claudeUnpatched,
     pollUnpatched,
+    containerEnvUnpatched,
     envRemoved,
   };
 }
@@ -132,6 +141,11 @@ export function runVerify(root?: string): {
   const pollPath = path.join(nanoclawRoot, 'container/agent-runner/src/poll-loop.ts');
   if (fs.existsSync(pollPath) && !fs.readFileSync(pollPath, 'utf8').includes(POLL_HOOK_MARKER_BEGIN)) {
     issues.push('poll-loop.ts missing agenttrace turn-boundary hook');
+  }
+
+  const runnerPath = path.join(nanoclawRoot, 'src/container-runner.ts');
+  if (fs.existsSync(runnerPath) && !fs.readFileSync(runnerPath, 'utf8').includes(CONTAINER_ENV_MARKER_BEGIN)) {
+    issues.push('container-runner.ts missing AGENTTRACE env forwarding');
   }
 
   return { root: nanoclawRoot, ok: issues.length === 0, issues };

@@ -6,6 +6,8 @@ import {
   CLAUDE_OBSERVE_MARKER_END,
   CLAUDE_PARTIAL_MARKER_BEGIN,
   CLAUDE_PARTIAL_MARKER_END,
+  CONTAINER_ENV_MARKER_BEGIN,
+  CONTAINER_ENV_MARKER_END,
   HOST_COPY_RULES,
   HOST_OPTIONAL_COPY_RULES,
   POLL_HOOK_MARKER_BEGIN,
@@ -235,6 +237,63 @@ export function unpatchPollLoop(nanoclawRoot: string): boolean {
     return true;
   }
   return false;
+}
+
+const CONTAINER_ENV_IMPORT = `import { agentTraceEnvArgs } from './agenttrace-env.js';\n`;
+const CONTAINER_ENV_SNIPPET = `
+  ${CONTAINER_ENV_MARKER_BEGIN}
+  args.push(...agentTraceEnvArgs());
+  ${CONTAINER_ENV_MARKER_END}
+`;
+
+/**
+ * Forward AGENTTRACE_* into containers after the TZ env line in buildContainerArgs.
+ * Without this, observe stays fail-closed and only host keepalives (typing) appear.
+ */
+export function patchContainerRunner(nanoclawRoot: string): boolean {
+  const filePath = path.join(nanoclawRoot, 'src/container-runner.ts');
+  if (!fs.existsSync(filePath)) {
+    throw new Error('src/container-runner.ts not found');
+  }
+  let content = fs.readFileSync(filePath, 'utf8');
+  if (content.includes(CONTAINER_ENV_MARKER_BEGIN)) return false;
+
+  if (!content.includes("from './agenttrace-env.js'") && !content.includes('from "./agenttrace-env.js"')) {
+    // Insert import after the last relative import near the top.
+    const importRe = /^import .+ from '\.\/[^']+';\r?\n/gm;
+    let lastImportEnd = 0;
+    for (const m of content.matchAll(importRe)) {
+      if (m.index != null) lastImportEnd = m.index + m[0].length;
+    }
+    if (lastImportEnd <= 0) {
+      throw new Error('Could not find import insert point in src/container-runner.ts');
+    }
+    content = content.slice(0, lastImportEnd) + CONTAINER_ENV_IMPORT + content.slice(lastImportEnd);
+  }
+
+  const tzRe = /args\.push\('-e',\s*`TZ=\$\{TIMEZONE\}`\);/;
+  const m = content.match(tzRe);
+  if (!m || m.index == null) {
+    throw new Error(
+      'Could not patch container-runner.ts for AGENTTRACE env — no TZ env anchor found.',
+    );
+  }
+  const insertAt = m.index + m[0].length;
+  content = content.slice(0, insertAt) + CONTAINER_ENV_SNIPPET + content.slice(insertAt);
+  fs.writeFileSync(filePath, content);
+  return true;
+}
+
+export function unpatchContainerRunner(nanoclawRoot: string): boolean {
+  const filePath = path.join(nanoclawRoot, 'src/container-runner.ts');
+  if (!fs.existsSync(filePath)) return false;
+  let content = fs.readFileSync(filePath, 'utf8');
+  const next = stripMarkedBlock(content, CONTAINER_ENV_MARKER_BEGIN, CONTAINER_ENV_MARKER_END);
+  let changed = next !== content;
+  content = next.replace(/^import \{ agentTraceEnvArgs \} from '\.\/agenttrace-env\.js';\r?\n/m, '');
+  if (content !== next) changed = true;
+  if (changed) fs.writeFileSync(filePath, content);
+  return changed;
 }
 
 function stripMarkedBlock(content: string, begin: string, end: string): string {
