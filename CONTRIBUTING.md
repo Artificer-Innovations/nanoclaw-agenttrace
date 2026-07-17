@@ -28,7 +28,7 @@ pnpm run build
 | Path | Role |
 |------|------|
 | `packages/shared` | Shared types and sanitization (private) |
-| `packages/host` | Host-side boot, dispatch, silence keepalives |
+| `packages/host` | Host-side boot, dispatch, silence keepalives (`type-fixtures/` stubs NanoClaw host modules for standalone `tsc`) |
 | `packages/runner` | Container observe / writer (synced into skill) |
 | `packages/cli` | `nanoclaw-agenttrace` install CLI |
 | `skills/add-agenttrace` | Claude Code `/add-agenttrace` install skill |

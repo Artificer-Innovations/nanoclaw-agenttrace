@@ -34,7 +34,7 @@
   ],
   "scripts": {
     "build": "pnpm --filter @nanoclaw-agenttrace/shared build && pnpm --filter @nanoclaw-agenttrace/cli build && node scripts/sync-resources.mjs && node scripts/verify-publish-entry.mjs",
-    "typecheck": "pnpm --filter @nanoclaw-agenttrace/shared --filter @nanoclaw-agenttrace/cli typecheck",
+    "typecheck": "pnpm --filter @nanoclaw-agenttrace/shared --filter @nanoclaw-agenttrace/cli --filter @nanoclaw-agenttrace/host typecheck",
     "test:unit": "pnpm -r test:unit",
     "changeset": "changeset",
     "version": "changeset version",
