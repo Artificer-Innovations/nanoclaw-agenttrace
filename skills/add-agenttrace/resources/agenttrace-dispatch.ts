@@ -32,8 +32,18 @@ interface DuckAdapter {
   clearActivity?: (platformId: string, threadId: string | null, turnId?: string) => Promise<void>;
   deliver?: DeliverFn;
   setTyping?: SetTypingFn;
-  /** Sticky status message ids for edit-in-place (Chat SDK). */
-  _agenttraceStatusMsg?: Map<string, string>;
+}
+
+/** Sticky status message ids owned by this module (not monkey-patched onto adapters). */
+const stickyByAdapter = new WeakMap<object, Map<string, string>>();
+
+function stickyMapFor(adapter: object): Map<string, string> {
+  let map = stickyByAdapter.get(adapter);
+  if (!map) {
+    map = new Map();
+    stickyByAdapter.set(adapter, map);
+  }
+  return map;
 }
 
 function stickyKey(dest: ActivityDestination): string {
@@ -43,6 +53,7 @@ function stickyKey(dest: ActivityDestination): string {
 /**
  * Publish one activity event to the destination channel.
  * Degradation ladder: publishActivity → edit-in-place → setTyping → silent.
+ * turn_end always clears rich UIs (clearActivity) after publish when available.
  */
 export async function dispatchActivity(
   dest: ActivityDestination,
@@ -59,15 +70,19 @@ export async function dispatchActivity(
 
   if (typeof adapter.publishActivity === 'function') {
     await adapter.publishActivity(dest.platformId, dest.threadId, event);
+    if (event.kind === 'turn_end' && typeof adapter.clearActivity === 'function') {
+      await adapter.clearActivity(dest.platformId, dest.threadId, event.turnId);
+    }
     return;
   }
+
+  const sticky = stickyMapFor(adapter);
+  const key = stickyKey(dest);
 
   // Edit-in-place sticky status via existing deliver(operation: edit|chat)
   if (typeof adapter.deliver === 'function' && event.kind !== 'turn_end') {
     const text = formatStatusLine(event);
-    const key = stickyKey(dest);
-    adapter._agenttraceStatusMsg ??= new Map();
-    const existingId = adapter._agenttraceStatusMsg.get(key);
+    const existingId = sticky.get(key);
 
     if (existingId) {
       try {
@@ -78,7 +93,7 @@ export async function dispatchActivity(
         return;
       } catch (err) {
         log.warn('agenttrace: edit-in-place failed, will repost', { err });
-        adapter._agenttraceStatusMsg.delete(key);
+        sticky.delete(key);
       }
     }
 
@@ -87,16 +102,19 @@ export async function dispatchActivity(
         kind: 'chat',
         content: { text, markdown: text },
       });
-      if (id) adapter._agenttraceStatusMsg.set(key, id);
+      if (id) sticky.set(key, id);
       return;
     } catch (err) {
       log.warn('agenttrace: status deliver failed, falling back to typing', { err });
     }
   }
 
-  if (event.kind === 'turn_end' && typeof adapter.clearActivity === 'function') {
-    await adapter.clearActivity(dest.platformId, dest.threadId, event.turnId);
-    return;
+  if (event.kind === 'turn_end') {
+    sticky.delete(key);
+    if (typeof adapter.clearActivity === 'function') {
+      await adapter.clearActivity(dest.platformId, dest.threadId, event.turnId);
+      return;
+    }
   }
 
   if (typeof adapter.setTyping === 'function' && event.kind !== 'turn_end') {

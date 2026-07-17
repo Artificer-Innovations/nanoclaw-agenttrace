@@ -57,7 +57,7 @@ describe('observeClaudeSdkMessage', () => {
     expect(content.event.tool).toBe('Bash');
   });
 
-  it('emits reasoning_summary when visibility allows', async () => {
+  it('does not emit reasoning_summary in 0.1.0 (deferred)', async () => {
     const { observeClaudeSdkMessage, beginAgentTraceTurn, refreshAgentTraceVisibility } = await import('./observe.js');
     refreshAgentTraceVisibility();
     beginAgentTraceTurn('msg-2');
@@ -70,7 +70,23 @@ describe('observeClaudeSdkMessage', () => {
       },
     });
 
-    const kinds = writes.map((w) => JSON.parse((w as { content: string }).content).event.kind);
-    expect(kinds).toContain('reasoning_summary');
+    expect(writes).toHaveLength(0);
+  });
+
+  it('redacts secrets in tool summaries before write', async () => {
+    const { observeClaudeSdkMessage, beginAgentTraceTurn, refreshAgentTraceVisibility } = await import('./observe.js');
+    refreshAgentTraceVisibility();
+    beginAgentTraceTurn('msg-3');
+    writes.length = 0;
+
+    observeClaudeSdkMessage({
+      type: 'tool_use_summary',
+      summary: 'Using key sk-abcdefghijklmnopqrstuvwxyz123456',
+    });
+
+    expect(writes.length).toBeGreaterThan(0);
+    const content = JSON.parse((writes[0] as { content: string }).content);
+    expect(content.event.summary).toContain('[redacted]');
+    expect(content.event.summary).not.toContain('sk-abcdefghijklmnopqrstuvwxyz123456');
   });
 });

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Agenttrace surfaces **live agent activity** (tools, tasks, reasoning summaries, keepalives) without changing NanoClaw trunk delivery for chat.
+Agenttrace surfaces **live agent activity** (tools, tasks, keepalives; reasoning summaries reserved for a later release) without changing NanoClaw trunk delivery for chat.
 
 ```
 Claude SDK → container observe → messages_out (kind=system, action=agenttrace_activity)
@@ -40,7 +40,7 @@ Claude SDK → container observe → messages_out (kind=system, action=agenttrac
 | kind | Meaning |
 |------|---------|
 | `turn_start` / `turn_end` | Turn lifecycle |
-| `reasoning_summary` | Summarized thinking (never signatures / redacted blobs) |
+| `reasoning_summary` | Reserved — **not emitted in 0.1.0** (deferred until summarized + redacted) |
 | `partial_text` | Coalesced partial assistant text |
 | `tool_start` / `tool_progress` / `tool_end` | Tool lifecycle |
 | `task_progress` | Subagent / task updates |
@@ -61,6 +61,8 @@ Fallback ladder when `publishActivity` is absent:
 1. `deliver` with sticky `operation: 'edit'` status text
 2. `setTyping`
 3. silent
+
+When `publishActivity` **is** present, `turn_end` still calls `clearActivity` afterward (if implemented) so rich UIs get an explicit clear signal.
 
 ## WebSocket events (nanoclaw-webchat)
 

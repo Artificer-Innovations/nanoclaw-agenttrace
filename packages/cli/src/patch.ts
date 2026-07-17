@@ -219,11 +219,10 @@ export function patchPollLoop(nanoclawRoot: string): boolean {
     }
   }
 
-  // Soft-fail: observe still works without turn_start hooks
-  console.warn(
-    'Warning: could not patch poll-loop.ts for turn_start hooks (observe still active via claude.ts)',
+  throw new Error(
+    'Could not patch poll-loop.ts for turn_start hooks — no getPendingMessages anchor found. ' +
+      'Without this patch, seq/turnId never reset between turns.',
   );
-  return false;
 }
 
 export function unpatchPollLoop(nanoclawRoot: string): boolean {

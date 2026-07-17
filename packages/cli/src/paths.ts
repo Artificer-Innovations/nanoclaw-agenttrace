@@ -104,6 +104,7 @@ export const HOST_OPTIONAL_COPY_RULES: CopyRule[] = [
 
 export const RUNNER_COPY_RULES: CopyRule[] = [
   { source: 'types.ts', dest: 'container/agent-runner/src/agenttrace/types.ts' },
+  { source: 'sanitize.ts', dest: 'container/agent-runner/src/agenttrace/sanitize.ts' },
   { source: 'writer.ts', dest: 'container/agent-runner/src/agenttrace/writer.ts' },
   { source: 'observe.ts', dest: 'container/agent-runner/src/agenttrace/observe.ts' },
   { source: 'poll-hook.ts', dest: 'container/agent-runner/src/agenttrace/poll-hook.ts' },

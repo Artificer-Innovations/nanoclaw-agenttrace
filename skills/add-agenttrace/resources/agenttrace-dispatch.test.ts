@@ -5,12 +5,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const publishActivity = vi.fn(async () => {});
+const clearActivity = vi.fn(async () => {});
 const deliver = vi.fn(async () => 'msg-1');
 const setTyping = vi.fn(async () => {});
 
 vi.mock('./channels/channel-registry.js', () => ({
   getChannelAdapterExact: vi.fn((key: string) => {
-    if (key === 'web') return { publishActivity };
+    if (key === 'web') return { publishActivity, clearActivity };
     if (key === 'telegram') return { deliver, setTyping };
     if (key === 'typing-only') return { setTyping };
     if (key === 'silent') return {};
@@ -36,6 +37,7 @@ const baseEvent = {
 describe('dispatchActivity', () => {
   beforeEach(() => {
     publishActivity.mockClear();
+    clearActivity.mockClear();
     deliver.mockClear();
     setTyping.mockClear();
   });
@@ -47,6 +49,15 @@ describe('dispatchActivity', () => {
     );
     expect(publishActivity).toHaveBeenCalledOnce();
     expect(deliver).not.toHaveBeenCalled();
+  });
+
+  it('calls clearActivity after publishActivity on turn_end', async () => {
+    await dispatchActivity(
+      { channelType: 'web', platformId: 'lobby', threadId: 'main', instance: 'web' },
+      { ...baseEvent, kind: 'turn_end', summary: 'Done' },
+    );
+    expect(publishActivity).toHaveBeenCalledOnce();
+    expect(clearActivity).toHaveBeenCalledWith('lobby', 'main', 't1');
   });
 
   it('falls back to sticky deliver edit/chat', async () => {

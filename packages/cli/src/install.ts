@@ -22,6 +22,7 @@ import {
   REQUIRED_HOST_FILES,
   REQUIRED_RUNNER_FILES,
   CLAUDE_OBSERVE_MARKER_BEGIN,
+  POLL_HOOK_MARKER_BEGIN,
 } from './paths.js';
 
 export interface InstallResult {
@@ -124,6 +125,11 @@ export function runVerify(root?: string): {
     issues.push('claude.ts missing agenttrace observe patch');
   }
 
+  const pollPath = path.join(nanoclawRoot, 'container/agent-runner/src/poll-loop.ts');
+  if (fs.existsSync(pollPath) && !fs.readFileSync(pollPath, 'utf8').includes(POLL_HOOK_MARKER_BEGIN)) {
+    issues.push('poll-loop.ts missing agenttrace turn-boundary hook');
+  }
+
   return { root: nanoclawRoot, ok: issues.length === 0, issues };
 }
 
@@ -135,8 +141,8 @@ export function printInstallNextSteps(result: InstallResult): void {
     console.log(`Added .env: ${result.env.created.join(', ')}`);
   }
   if (result.webchatDetected) {
-    console.log('\nDetected nanoclaw-webchat — for a rich timeline UI, use webchat ≥ 0.3.2');
-    console.log('(per-agent live rows + typing bubbles). Local: pnpm webchat:local');
+    console.log('\nDetected nanoclaw-webchat — for a rich timeline UI, use a webchat build');
+    console.log('with the agent activity companion (feat/agent-activity-timeline). Local: pnpm webchat:local');
   }
   console.log('\nNext steps:');
   console.log('  1. Set AGENTTRACE_ENABLED=true in .env (ships disabled / fail-closed).');

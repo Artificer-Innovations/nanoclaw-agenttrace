@@ -11,15 +11,20 @@ let turnId = `turn-${Date.now()}`;
 let seq = 0;
 let visibility: 'off' | 'status' | 'trace' | 'trace_reasoning' = readVisibility();
 
+/**
+ * Fail-closed: emit nothing unless AGENTTRACE_ENABLED is truthy.
+ * Visibility then narrows what is emitted (status | trace | …).
+ * Reasoning summaries are deferred past 0.1.0 — never emitted here yet.
+ */
 function readVisibility(): 'off' | 'status' | 'trace' | 'trace_reasoning' {
+  const enabled = (process.env.AGENTTRACE_ENABLED || '').trim().toLowerCase();
+  if (enabled !== '1' && enabled !== 'true' && enabled !== 'yes') return 'off';
+
   const raw = (process.env.AGENTTRACE_VISIBILITY || process.env.AGENTTRACE_DEFAULT_VISIBILITY || 'trace')
     .trim()
     .toLowerCase();
   if (raw === 'off' || raw === 'status' || raw === 'trace' || raw === 'trace_reasoning') return raw;
-  // Host enables via AGENTTRACE_ENABLED; container inherits env at spawn.
-  const enabled = (process.env.AGENTTRACE_ENABLED || '').trim().toLowerCase();
-  if (enabled === '1' || enabled === 'true' || enabled === 'yes') return 'trace';
-  return 'off';
+  return 'trace';
 }
 
 export function setAgentTraceTurnId(id: string): void {
@@ -39,7 +44,8 @@ function nextSeq(): number {
 function emit(kind: AgentActivityKind, summary: string, extra?: { tool?: string; phase?: string }): void {
   if (visibility === 'off') return;
   if (visibility === 'status' && (kind === 'reasoning_summary' || kind === 'partial_text')) return;
-  if (visibility === 'trace' && kind === 'reasoning_summary') return;
+  // 0.1.0: never forward raw thinking (even under trace_reasoning).
+  if (kind === 'reasoning_summary') return;
 
   writeActivityEvent({
     turnId,
@@ -69,8 +75,9 @@ export function observeClaudeSdkMessage(message: unknown): void {
       for (const block of content) {
         if (!block || typeof block !== 'object') continue;
         const b = block as Record<string, unknown>;
-        if (b.type === 'thinking' && typeof b.thinking === 'string' && b.thinking.trim()) {
-          emit('reasoning_summary', b.thinking.trim().slice(0, 2000));
+        // reasoning_summary deferred past 0.1.0 — skip thinking blocks.
+        if (b.type === 'thinking') {
+          continue;
         } else if (b.type === 'text' && typeof b.text === 'string' && b.text.trim()) {
           emit('partial_text', b.text.trim().slice(0, 500));
         } else if (b.type === 'tool_use' && typeof b.name === 'string') {
@@ -85,8 +92,8 @@ export function observeClaudeSdkMessage(message: unknown): void {
       if (!event) return;
       if (event.type === 'content_block_delta') {
         const delta = event.delta as Record<string, unknown> | undefined;
-        if (delta?.type === 'thinking_delta' && typeof delta.thinking === 'string' && delta.thinking) {
-          emit('reasoning_summary', delta.thinking.slice(0, 500));
+        if (delta?.type === 'thinking_delta') {
+          // deferred past 0.1.0
         } else if (delta?.type === 'text_delta' && typeof delta.text === 'string' && delta.text) {
           emit('partial_text', delta.text.slice(0, 300));
         }

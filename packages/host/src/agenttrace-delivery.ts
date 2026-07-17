@@ -9,7 +9,7 @@ import { getAgentGroup, getMessagingGroup, getMessagingGroupByPlatform } from '.
 import { log } from './log.js';
 import type { Session } from './types.js';
 import { dispatchActivity } from './agenttrace-dispatch.js';
-import { AGENTTRACE_ACTION, type AgentActivityEvent } from './agenttrace-shared.js';
+import { AGENTTRACE_ACTION, sanitizeActivityEvent, type AgentActivityEvent } from './agenttrace-shared.js';
 import { noteActivitySeen } from './agenttrace-silence.js';
 
 let registered = false;
@@ -35,7 +35,7 @@ export function registerAgentTraceDelivery(): void {
         return;
       }
 
-      await dispatchActivity(dest, enrichWithAgentIdentity(session, event));
+      await dispatchActivity(dest, sanitizeActivityEvent(enrichWithAgentIdentity(session, event)));
     },
     unguarded('agent activity telemetry — no privileged side effects'),
   );

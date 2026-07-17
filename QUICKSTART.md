@@ -18,7 +18,9 @@ AGENTTRACE_DEFAULT_VISIBILITY=trace
 AGENTTRACE_SILENCE_KEEPALIVE=true
 ```
 
-For reasoning summaries in the UI: `AGENTTRACE_DEFAULT_VISIBILITY=trace_reasoning`.
+For reasoning summaries in the UI: deferred past 0.1.0 — `trace_reasoning` is reserved but not emitted yet.
+
+**Note:** install patches the Claude provider with `includePartialMessages: true` so stream deltas can be observed. That SDK option applies to every session once the patch is installed, even when `AGENTTRACE_ENABLED=false` (events are still not written unless enabled).
 
 ## 3. Build & restart
 

@@ -6,16 +6,37 @@ import { randomUUID } from 'node:crypto';
 import { writeMessageOut } from '../db/messages-out.js';
 import { getSessionRouting } from '../db/session-routing.js';
 import { getOutboundDb } from '../db/connection.js';
-import { AGENTTRACE_ACTION, MAX_COMPLETED_TURNS, MAX_EVENTS_PER_TURN, type AgentActivityEvent } from './types.js';
+import {
+  AGENTTRACE_ACTION,
+  MAX_COMPLETED_TURNS,
+  MAX_EVENTS_PER_TURN,
+  type AgentActivityEvent,
+  type AgentActivityKind,
+} from './types.js';
+import { sanitizeActivityEvent } from './sanitize.js';
+
+/** Kinds that must not be dropped when applying the per-turn cap (sync with shared/caps.ts). */
+const PRESERVE_KINDS: Set<AgentActivityKind> = new Set([
+  'turn_start',
+  'turn_end',
+  'tool_start',
+  'tool_end',
+  'error',
+  'compaction',
+  'keepalive',
+]);
 
 const turnCounts = new Map<string, number>();
 
 export function writeActivityEvent(event: AgentActivityEvent): void {
-  const n = turnCounts.get(event.turnId) ?? 0;
-  if (n >= MAX_EVENTS_PER_TURN && event.kind !== 'turn_end' && event.kind !== 'tool_end' && event.kind !== 'error') {
+  const sanitized = sanitizeActivityEvent(event);
+  if (!sanitized) return;
+
+  const n = turnCounts.get(sanitized.turnId) ?? 0;
+  if (n >= MAX_EVENTS_PER_TURN && !PRESERVE_KINDS.has(sanitized.kind)) {
     return;
   }
-  turnCounts.set(event.turnId, n + 1);
+  turnCounts.set(sanitized.turnId, n + 1);
 
   const routing = getSessionRouting();
 
@@ -27,7 +48,7 @@ export function writeActivityEvent(event: AgentActivityEvent): void {
     thread_id: routing.thread_id,
     content: JSON.stringify({
       action: AGENTTRACE_ACTION,
-      event,
+      event: sanitized,
       // Duplicate routing for host resolver convenience
       channel_type: routing.channel_type,
       platform_id: routing.platform_id,
@@ -35,8 +56,8 @@ export function writeActivityEvent(event: AgentActivityEvent): void {
     }),
   });
 
-  if (event.kind === 'turn_end') {
-    pruneOldActivity(event.turnId);
+  if (sanitized.kind === 'turn_end') {
+    pruneOldActivity(sanitized.turnId);
   }
 }
 

@@ -20,6 +20,16 @@ export function noteActivitySeen(sessionId: string, atMs: number = Date.now()): 
   firedThresholds.delete(sessionId);
 }
 
+/** Drop bookkeeping for sessions that are no longer active. */
+export function evictInactiveSilenceState(activeIds: ReadonlySet<string>): void {
+  for (const id of lastActivityAt.keys()) {
+    if (!activeIds.has(id)) lastActivityAt.delete(id);
+  }
+  for (const id of firedThresholds.keys()) {
+    if (!activeIds.has(id)) firedThresholds.delete(id);
+  }
+}
+
 export function startSilenceKeepalive(intervalMs = 5_000): void {
   if (timer) return;
   timer = setInterval(() => {
@@ -40,7 +50,11 @@ export function stopSilenceKeepalive(): void {
 
 async function tick(): Promise<void> {
   const now = Date.now();
-  for (const session of getActiveSessions()) {
+  const sessions = getActiveSessions();
+  const activeIds = new Set(sessions.map((s) => s.id));
+  evictInactiveSilenceState(activeIds);
+
+  for (const session of sessions) {
     const hb = heartbeatPath(session.agent_group_id, session.id);
     let hbMtime = 0;
     try {
@@ -57,15 +71,14 @@ async function tick(): Promise<void> {
 
     for (const threshold of SILENCE_KEEPALIVE_THRESHOLDS_MS) {
       if (quietFor < threshold || fired.has(threshold)) continue;
-      fired.add(threshold);
-      firedThresholds.set(session.id, fired);
 
-      const tool = readCurrentTool(session.agent_group_id, session.id);
-      const summary = tool || 'Working';
       const mg = session.messaging_group_id ? getMessagingGroup(session.messaging_group_id) : undefined;
       if (!mg) continue;
       const agent = getAgentGroup(session.agent_group_id);
       if (!agent) continue;
+
+      const tool = readCurrentTool(session.agent_group_id, session.id);
+      const summary = tool || 'Working';
 
       const event: AgentActivityEvent = {
         turnId: `keepalive:${session.id}`,
@@ -80,16 +93,23 @@ async function tick(): Promise<void> {
         agentFolder: agent.folder,
       };
 
-      await dispatchActivity(
-        {
-          channelType: mg.channel_type,
-          platformId: mg.platform_id,
-          threadId: session.thread_id,
-          instance: mg.instance,
-        },
-        event,
-      );
-      log.info('agenttrace keepalive', { sessionId: session.id, threshold, tool });
+      try {
+        await dispatchActivity(
+          {
+            channelType: mg.channel_type,
+            platformId: mg.platform_id,
+            threadId: session.thread_id,
+            instance: mg.instance,
+          },
+          event,
+        );
+        fired.add(threshold);
+        firedThresholds.set(session.id, fired);
+        log.info('agenttrace keepalive', { sessionId: session.id, threshold, tool });
+      } catch (err) {
+        // Do not mark fired — retry on next tick (claim-after-success).
+        log.warn('agenttrace keepalive dispatch failed', { sessionId: session.id, threshold, err });
+      }
     }
   }
 }

@@ -34,9 +34,11 @@ pnpm exec nanoclaw-agenttrace verify
 
 ## Privacy
 
+- Fail-closed: nothing is emitted unless `AGENTTRACE_ENABLED=true`
 - Never forwards thinking signatures or `redacted_thinking` data
-- Redacts common secret patterns; truncates long text
-- Visibility: `off` \| `status` \| `trace` \| `trace_reasoning` (default `trace`)
+- **0.1.0 does not forward reasoning / chain-of-thought** (`reasoning_summary` deferred until summarized + redacted)
+- Redacts common secret patterns on the emit path (container writer + host delivery); truncates long text
+- Visibility: `off` \| `status` \| `trace` \| `trace_reasoning` (default `trace` when enabled)
 
 ## Related prior art
 
