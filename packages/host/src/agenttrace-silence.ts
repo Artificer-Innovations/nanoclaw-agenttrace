@@ -65,6 +65,11 @@ async function tick(): Promise<void> {
     // Stale heartbeat (>90s) → container likely gone
     if (now - hbMtime > 90_000) continue;
 
+    // Heartbeat alone is not enough — warm idle containers stay heartbeating
+    // between turns. Only emit #1440 keepalives while a turn is in flight.
+    const midTurn = readMidTurnState(session.agent_group_id, session.id);
+    if (!midTurn.active) continue;
+
     const last = lastActivityAt.get(session.id) ?? hbMtime;
     const quietFor = now - last;
     const fired = firedThresholds.get(session.id) ?? new Set<number>();
@@ -77,7 +82,7 @@ async function tick(): Promise<void> {
       const agent = getAgentGroup(session.agent_group_id);
       if (!agent) continue;
 
-      const tool = readCurrentTool(session.agent_group_id, session.id);
+      const tool = midTurn.tool;
       const summary = tool || 'Working';
 
       const event: AgentActivityEvent = {
@@ -114,16 +119,36 @@ async function tick(): Promise<void> {
   }
 }
 
-function readCurrentTool(agentGroupId: string, sessionId: string): string | null {
+function readMidTurnState(
+  agentGroupId: string,
+  sessionId: string,
+): { active: boolean; tool: string | null } {
   try {
     const db = openOutboundDb(agentGroupId, sessionId);
     try {
+      const processing = db
+        .prepare("SELECT 1 AS ok FROM processing_ack WHERE status = 'processing' LIMIT 1")
+        .get() as { ok: number } | undefined;
       const state = getContainerState(db);
-      return state?.current_tool ?? null;
+      const tool = state?.current_tool ?? null;
+      // In-reply stamp is set for the duration of a poll-loop batch.
+      let inReply = false;
+      try {
+        const row = db
+          .prepare("SELECT value, updated_at FROM session_state WHERE key = 'current_in_reply_to'")
+          .get() as { value: string; updated_at: string } | undefined;
+        if (row?.value) {
+          const age = Date.now() - new Date(row.updated_at).getTime();
+          inReply = Number.isFinite(age) && age < 30 * 60 * 1000;
+        }
+      } catch {
+        /* older schema */
+      }
+      return { active: Boolean(processing) || Boolean(tool) || inReply, tool };
     } finally {
       db.close();
     }
   } catch {
-    return null;
+    return { active: false, tool: null };
   }
 }
