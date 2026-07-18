@@ -1,9 +1,9 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": "src",
+    "rootDirs": ["src", "type-fixtures"],
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["src"]
+  "include": ["src", "type-fixtures"]
 }

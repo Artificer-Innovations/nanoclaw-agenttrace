@@ -5,6 +5,14 @@
   "type": "module",
   "license": "MIT",
   "author": "Artificer Innovations, LLC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Artificer-Innovations/nanoclaw-agenttrace"
+  },
+  "homepage": "https://github.com/Artificer-Innovations/nanoclaw-agenttrace",
+  "bugs": {
+    "url": "https://github.com/Artificer-Innovations/nanoclaw-agenttrace/issues"
+  },
   "keywords": [
     "nanoclaw",
     "ai-agent",
@@ -25,18 +33,24 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "pnpm --filter @nanoclaw-agenttrace/shared build && pnpm --filter @nanoclaw-agenttrace/cli build && node scripts/sync-resources.mjs",
-    "typecheck": "pnpm -r typecheck",
+    "build": "pnpm --filter @nanoclaw-agenttrace/shared build && pnpm --filter @nanoclaw-agenttrace/cli build && node scripts/sync-resources.mjs && node scripts/verify-publish-entry.mjs",
+    "typecheck": "pnpm --filter @nanoclaw-agenttrace/shared --filter @nanoclaw-agenttrace/cli --filter @nanoclaw-agenttrace/host typecheck",
     "test:unit": "pnpm -r test:unit",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release:publish": "npm publish --provenance --access public",
     "prepublishOnly": "pnpm run build"
   },
   "engines": {
     "node": ">=20"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "provenance": true
   },
   "devDependencies": {
+    "@changesets/changelog-github": "^0.5.1",
+    "@changesets/cli": "^2.29.4",
     "@types/node": "^22.15.30",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"
