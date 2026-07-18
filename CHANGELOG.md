@@ -8,3 +8,4 @@
 - Dispatch ladder catches `publishActivity`/`clearActivity` failures and falls through
 - Writer tracks message ids per turn (no LIKE full-table prune) and caps orphan turn maps
 - Forward `AGENTTRACE_*` into containers via `container-runner` (observe is fail-closed without it)
+- CI typecheck includes `packages/host` via `type-fixtures/` stubs for NanoClaw host modules (shared + cli + host)
