@@ -137,10 +137,22 @@ const SDKOPTS_SNIPPET = `
         ${CLAUDE_SDKOPTS_MARKER_BEGIN}
         ...(() => {
           try {
-            // Sync require of the same module the async observe hook imports —
-            // single source of truth for summarized-thinking / trace_full options.
-            // eslint-disable-next-line @typescript-eslint/no-require-imports
-            return require('../agenttrace/observe.js').agentTraceQueryOptions();
+            // observe.js (ESM) registers this bridge when the poll-loop hook
+            // async-imports it before each provider query — a sync require()
+            // of an ES module would throw and silently disable reasoning.
+            const bridge = Reflect.get(globalThis, '__nanoclawAgentTraceQueryOptions');
+            if (typeof bridge === 'function') return bridge();
+            if (
+              (process.env.AGENTTRACE_ENABLED || '').trim() &&
+              !Reflect.get(globalThis, '__nanoclawAgentTraceOptsWarned')
+            ) {
+              Reflect.set(globalThis, '__nanoclawAgentTraceOptsWarned', true);
+              console.error(
+                '[agenttrace] observe.js is not loaded — summarized thinking will not be requested. ' +
+                  'Check the poll-loop patch and agenttrace runner files (issue #7).',
+              );
+            }
+            return {};
           } catch {
             return {};
           }
@@ -161,6 +173,18 @@ const POLL_SNIPPET_MESSAGES = `
     ${POLL_HOOK_MARKER_END}
 `;
 
+/** Matches sdkopts blocks that predate the globalThis bridge (0.2.0 dev builds
+ * used a sync require() of ESM observe.js, which throws — issue #7 — and the
+ * original 0.1.x snippet duplicated the env parse). Both get re-spliced. */
+export function hasStaleSdkoptsBlock(content: string): boolean {
+  const start = content.indexOf(CLAUDE_SDKOPTS_MARKER_BEGIN);
+  if (start < 0) return false;
+  const end = content.indexOf(CLAUDE_SDKOPTS_MARKER_END, start);
+  if (end < 0) return true;
+  const block = content.slice(start, end);
+  return !block.includes('__nanoclawAgentTraceQueryOptions');
+}
+
 export function patchClaudeProvider(nanoclawRoot: string): boolean {
   const filePath = path.join(nanoclawRoot, 'container/agent-runner/src/providers/claude.ts');
   if (!fs.existsSync(filePath)) {
@@ -168,6 +192,11 @@ export function patchClaudeProvider(nanoclawRoot: string): boolean {
   }
   let content = fs.readFileSync(filePath, 'utf8');
   let changed = false;
+
+  if (hasStaleSdkoptsBlock(content)) {
+    content = stripMarkedBlock(content, CLAUDE_SDKOPTS_MARKER_BEGIN, CLAUDE_SDKOPTS_MARKER_END);
+    changed = true;
+  }
 
   if (!content.includes(CLAUDE_OBSERVE_MARKER_BEGIN)) {
     const anchor = 'yield { type: \'activity\' };';

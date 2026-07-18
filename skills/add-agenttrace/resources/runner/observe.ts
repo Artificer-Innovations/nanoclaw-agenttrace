@@ -345,3 +345,11 @@ export function agentTraceQueryOptions(): {
     ...(isFull(v) ? { forwardSubagentText: true } : {}),
   };
 }
+
+// claude.ts builds its SDK options object synchronously, so it cannot
+// `await import()` this module — and `require()` of an ES module throws
+// (ReferenceError under ESM, ERR_REQUIRE_ESM on Node < 22.12; issue #7).
+// Register a global bridge instead: the poll-loop hook async-imports
+// observe.js before each provider query, so this is primed before the
+// sdkopts splice in claude.ts reads it.
+Reflect.set(globalThis, '__nanoclawAgentTraceQueryOptions', agentTraceQueryOptions);
