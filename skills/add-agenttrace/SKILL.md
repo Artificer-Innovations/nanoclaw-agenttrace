@@ -75,7 +75,7 @@ This will:
 1. Copy host adapter sources into `src/agenttrace-*.ts`
 2. Copy runner modules into `container/agent-runner/src/agenttrace/`
 3. Insert the `startAgentTrace()` boot block in `src/index.ts`
-4. Patch `providers/claude.ts` with observe + `includePartialMessages`
+4. Patch `providers/claude.ts` with observe + `includePartialMessages` + summarized-thinking SDK options
 5. Optionally patch `poll-loop.ts` for turn_start hooks
 6. Scaffold `.env` keys (`AGENTTRACE_ENABLED=false` by default)
 7. Sync this skill to `.claude/skills/add-agenttrace/`
@@ -125,11 +125,14 @@ See [REMOVE.md](REMOVE.md).
 |-------|--------|
 | `off` | Nothing |
 | `status` | Tools / tasks / keepalives (no reasoning or partial text) |
-| `trace` | Status + partial text + tasks (no reasoning summaries) |
-| `trace_reasoning` | Everything safe, including reasoning summaries |
+| `trace` (default) | Status + partial text + **Anthropic summarized reasoning** |
+| `trace_reasoning` | Alias of `trace` (compat; no raw CoT mode — API does not expose raw CoT) |
+| `trace_full` | Everything in `trace` plus secret-scanned tool inputs/results and subagent transcripts |
+
+`trace_full` payloads are **secret-scanned** (`@sanity-labs/secret-scan`, pattern-based) — credential-shaped strings are stripped, but PII, internal URLs, file paths, and proprietary content pass through truncated. Enable only where that content is acceptable on the timeline.
 
 Host default: `AGENTTRACE_DEFAULT_VISIBILITY`. Per-group override (container env / config blob): `activity_visibility` or `AGENTTRACE_VISIBILITY` at spawn — no trunk CRUD change required if you set it in the group's container config JSON.
 
 ## Retention
 
-Bounded per session: max 200 events/turn, ~4 KiB/event summary, prune oldest activity rows beyond 50 turns. Activity never replaces the final chat reply.
+Bounded per session: max 200 events/turn (500 under `trace_full`), ~4 KiB/event summary, prune oldest activity rows beyond 50 turns. Activity never replaces the final chat reply.

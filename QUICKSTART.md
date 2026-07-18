@@ -4,7 +4,7 @@
 
 ```bash
 cd /path/to/nanoclaw
-pnpm add nanoclaw-agenttrace@0.1.0   # or: pnpm add file:../nanoclaw-agenttrace
+pnpm add nanoclaw-agenttrace@0.2.0   # or: pnpm add file:../nanoclaw-agenttrace
 pnpm exec nanoclaw-agenttrace install
 ```
 
@@ -18,9 +18,14 @@ AGENTTRACE_DEFAULT_VISIBILITY=trace
 AGENTTRACE_SILENCE_KEEPALIVE=true
 ```
 
-For reasoning summaries in the UI: deferred past 0.1.0 — `trace_reasoning` is reserved but not emitted yet.
+Default `trace` includes Anthropic **summarized** thinking (not raw CoT — the API does not expose that). For the firehose (tool inputs/results + subagent text):
 
-**Note:** install patches the Claude provider with `includePartialMessages: true` so stream deltas can be observed. That SDK option applies to every session once the patch is installed, even when `AGENTTRACE_ENABLED=false` (events are still not written unless enabled).
+```
+AGENTTRACE_DEFAULT_VISIBILITY=trace_full
+# or per-container: AGENTTRACE_VISIBILITY=trace_full
+```
+
+**Note:** install patches the Claude provider with `includePartialMessages: true` and, when enabled at `trace`+, requests `thinking: { display: "summarized" }`. `includePartialMessages` applies to every session once the patch is installed, even when `AGENTTRACE_ENABLED=false` (events are still not written unless enabled).
 
 Install also patches `src/container-runner.ts` to forward `AGENTTRACE_ENABLED` / visibility into containers. Without that, observe stays fail-closed and you only see host silence keepalives (typing bubbles).
 

@@ -6,6 +6,8 @@ import {
   CLAUDE_OBSERVE_MARKER_END,
   CLAUDE_PARTIAL_MARKER_BEGIN,
   CLAUDE_PARTIAL_MARKER_END,
+  CLAUDE_SDKOPTS_MARKER_BEGIN,
+  CLAUDE_SDKOPTS_MARKER_END,
   CONTAINER_ENV_MARKER_BEGIN,
   CONTAINER_ENV_MARKER_END,
   HOST_COPY_RULES,
@@ -131,6 +133,35 @@ const PARTIAL_SNIPPET = `
         ${CLAUDE_PARTIAL_MARKER_END}
 `;
 
+const SDKOPTS_SNIPPET = `
+        ${CLAUDE_SDKOPTS_MARKER_BEGIN}
+        ...(() => {
+          try {
+            // observe.js (ESM) registers this bridge when the poll-loop hook
+            // async-imports it before each provider query — a sync require()
+            // of an ES module would throw and silently disable reasoning.
+            const bridge = Reflect.get(globalThis, '__nanoclawAgentTraceQueryOptions');
+            if (typeof bridge === 'function') return bridge();
+            // Same truthy parse as observe.ts readVisibility — AGENTTRACE_ENABLED=false must stay silent.
+            const enabled = (process.env.AGENTTRACE_ENABLED || '').trim().toLowerCase();
+            if (
+              (enabled === '1' || enabled === 'true' || enabled === 'yes') &&
+              !Reflect.get(globalThis, '__nanoclawAgentTraceOptsWarned')
+            ) {
+              Reflect.set(globalThis, '__nanoclawAgentTraceOptsWarned', true);
+              console.error(
+                '[agenttrace] observe.js is not loaded — summarized thinking will not be requested. ' +
+                  'Check the poll-loop patch and agenttrace runner files (issue #7).',
+              );
+            }
+            return {};
+          } catch {
+            return {};
+          }
+        })(),
+        ${CLAUDE_SDKOPTS_MARKER_END}
+`;
+
 const POLL_SNIPPET_MESSAGES = `
     ${POLL_HOOK_MARKER_BEGIN}
     if (messages.length > 0) {
@@ -144,6 +175,18 @@ const POLL_SNIPPET_MESSAGES = `
     ${POLL_HOOK_MARKER_END}
 `;
 
+/** Matches sdkopts blocks that predate the globalThis bridge (0.2.0 dev builds
+ * used a sync require() of ESM observe.js, which throws — issue #7 — and the
+ * original 0.1.x snippet duplicated the env parse). Both get re-spliced. */
+export function hasStaleSdkoptsBlock(content: string): boolean {
+  const start = content.indexOf(CLAUDE_SDKOPTS_MARKER_BEGIN);
+  if (start < 0) return false;
+  const end = content.indexOf(CLAUDE_SDKOPTS_MARKER_END, start);
+  if (end < 0) return true;
+  const block = content.slice(start, end);
+  return !block.includes('__nanoclawAgentTraceQueryOptions');
+}
+
 export function patchClaudeProvider(nanoclawRoot: string): boolean {
   const filePath = path.join(nanoclawRoot, 'container/agent-runner/src/providers/claude.ts');
   if (!fs.existsSync(filePath)) {
@@ -151,6 +194,21 @@ export function patchClaudeProvider(nanoclawRoot: string): boolean {
   }
   let content = fs.readFileSync(filePath, 'utf8');
   let changed = false;
+
+  if (hasStaleSdkoptsBlock(content)) {
+    const stripped = stripMarkedBlock(content, CLAUDE_SDKOPTS_MARKER_BEGIN, CLAUDE_SDKOPTS_MARKER_END);
+    if (stripped === content) {
+      // Begin marker without end marker: stripMarkedBlock is a no-op, and the
+      // reinsert below would be skipped (begin marker still present) — the
+      // stale block would survive while we report success. Fail loudly instead.
+      throw new Error(
+        'claude.ts has a corrupt agenttrace sdkopts block (begin marker without end marker). ' +
+          'Remove the block manually, then re-run upgrade.',
+      );
+    }
+    content = stripped;
+    changed = true;
+  }
 
   if (!content.includes(CLAUDE_OBSERVE_MARKER_BEGIN)) {
     const anchor = 'yield { type: \'activity\' };';
@@ -177,6 +235,29 @@ export function patchClaudeProvider(nanoclawRoot: string): boolean {
     changed = true;
   }
 
+  if (!content.includes(CLAUDE_SDKOPTS_MARKER_BEGIN)) {
+    // Prefer inserting after the partial-messages marker so upgrades land next to it.
+    const afterPartial = content.indexOf(CLAUDE_PARTIAL_MARKER_END);
+    if (afterPartial >= 0) {
+      const insertAt = afterPartial + CLAUDE_PARTIAL_MARKER_END.length;
+      content = content.slice(0, insertAt) + SDKOPTS_SNIPPET + content.slice(insertAt);
+      changed = true;
+    } else {
+      const anchor = 'permissionMode: \'bypassPermissions\',';
+      const idx = content.indexOf(anchor);
+      if (idx >= 0) {
+        content = content.slice(0, idx) + SDKOPTS_SNIPPET + content.slice(idx);
+        changed = true;
+      } else {
+        const alt = 'permissionMode: "bypassPermissions",';
+        const idx2 = content.indexOf(alt);
+        if (idx2 < 0) throw new Error('Could not find permissionMode in claude.ts for sdkopts');
+        content = content.slice(0, idx2) + SDKOPTS_SNIPPET + content.slice(idx2);
+        changed = true;
+      }
+    }
+  }
+
   if (changed) fs.writeFileSync(filePath, content);
   return changed;
 }
@@ -188,6 +269,7 @@ export function unpatchClaudeProvider(nanoclawRoot: string): boolean {
   const before = content;
   content = stripMarkedBlock(content, CLAUDE_OBSERVE_MARKER_BEGIN, CLAUDE_OBSERVE_MARKER_END);
   content = stripMarkedBlock(content, CLAUDE_PARTIAL_MARKER_BEGIN, CLAUDE_PARTIAL_MARKER_END);
+  content = stripMarkedBlock(content, CLAUDE_SDKOPTS_MARKER_BEGIN, CLAUDE_SDKOPTS_MARKER_END);
   if (content !== before) {
     fs.writeFileSync(filePath, content);
     return true;

@@ -7,7 +7,7 @@
  */
 import { redact } from '@sanity-labs/secret-scan';
 
-export type ActivityVisibility = 'off' | 'status' | 'trace' | 'trace_reasoning';
+export type ActivityVisibility = 'off' | 'status' | 'trace' | 'trace_reasoning' | 'trace_full';
 
 export type AgentActivityKind =
   | 'turn_start'
@@ -44,7 +44,13 @@ export const SILENCE_KEEPALIVE_THRESHOLDS_MS = [30_000, 90_000, 180_000] as cons
 const MAX_EVENT_TEXT_BYTES = 4_000;
 
 export function parseVisibility(raw: unknown): ActivityVisibility {
-  if (raw === 'off' || raw === 'status' || raw === 'trace' || raw === 'trace_reasoning') {
+  if (
+    raw === 'off' ||
+    raw === 'status' ||
+    raw === 'trace' ||
+    raw === 'trace_reasoning' ||
+    raw === 'trace_full'
+  ) {
     return raw;
   }
   return 'off';

@@ -1,6 +1,6 @@
 {
   "name": "nanoclaw-agenttrace",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Live agent activity traces for NanoClaw — tools, tasks, reasoning summaries, and silence keepalives",
   "type": "module",
   "license": "MIT",

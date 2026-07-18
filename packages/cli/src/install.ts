@@ -5,6 +5,7 @@ import {
   copyRunnerFiles,
   ensureSecretScanDependency,
   hasAgentTraceBootBlock,
+  hasStaleSdkoptsBlock,
   insertAgentTraceBootBlock,
   patchClaudeProvider,
   patchContainerRunner,
@@ -25,6 +26,7 @@ import {
   REQUIRED_HOST_FILES,
   REQUIRED_RUNNER_FILES,
   CLAUDE_OBSERVE_MARKER_BEGIN,
+  CLAUDE_SDKOPTS_MARKER_BEGIN,
   CONTAINER_ENV_MARKER_BEGIN,
   POLL_HOOK_MARKER_BEGIN,
 } from './paths.js';
@@ -134,8 +136,18 @@ export function runVerify(root?: string): {
   }
 
   const claudePath = path.join(nanoclawRoot, 'container/agent-runner/src/providers/claude.ts');
-  if (fs.existsSync(claudePath) && !fs.readFileSync(claudePath, 'utf8').includes(CLAUDE_OBSERVE_MARKER_BEGIN)) {
-    issues.push('claude.ts missing agenttrace observe patch');
+  if (fs.existsSync(claudePath)) {
+    const claudeSrc = fs.readFileSync(claudePath, 'utf8');
+    if (!claudeSrc.includes(CLAUDE_OBSERVE_MARKER_BEGIN)) {
+      issues.push('claude.ts missing agenttrace observe patch');
+    }
+    if (!claudeSrc.includes(CLAUDE_SDKOPTS_MARKER_BEGIN)) {
+      issues.push('claude.ts missing agenttrace thinking/sdkopts patch (run upgrade)');
+    } else if (hasStaleSdkoptsBlock(claudeSrc)) {
+      issues.push(
+        'claude.ts has a stale sdkopts patch that never activates summarized thinking (run upgrade)',
+      );
+    }
   }
 
   const pollPath = path.join(nanoclawRoot, 'container/agent-runner/src/poll-loop.ts');

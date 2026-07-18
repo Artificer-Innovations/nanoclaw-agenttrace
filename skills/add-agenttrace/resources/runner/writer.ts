@@ -10,6 +10,8 @@ import {
   AGENTTRACE_ACTION,
   MAX_COMPLETED_TURNS,
   MAX_EVENTS_PER_TURN,
+  MAX_EVENTS_PER_TURN_FULL,
+  type ActivityVisibility,
   type AgentActivityEvent,
   type AgentActivityKind,
 } from './types.js';
@@ -31,12 +33,21 @@ const turnCounts = new Map<string, number>();
 const turnMessageIds = new Map<string, string[]>();
 const MAX_TRACKED_TURNS = MAX_COMPLETED_TURNS * 2;
 
+let activeVisibility: ActivityVisibility = 'trace';
+
+/** Observe calls this so the writer applies the matching sanitize + event cap. */
+export function setWriterVisibility(visibility: ActivityVisibility): void {
+  activeVisibility = visibility;
+}
+
 export function writeActivityEvent(event: AgentActivityEvent): void {
-  const sanitized = sanitizeActivityEvent(event);
+  const sanitized = sanitizeActivityEvent(event, activeVisibility);
   if (!sanitized) return;
 
+  const maxEvents =
+    activeVisibility === 'trace_full' ? MAX_EVENTS_PER_TURN_FULL : MAX_EVENTS_PER_TURN;
   const n = turnCounts.get(sanitized.turnId) ?? 0;
-  if (n >= MAX_EVENTS_PER_TURN && !PRESERVE_KINDS.has(sanitized.kind)) {
+  if (n >= maxEvents && !PRESERVE_KINDS.has(sanitized.kind)) {
     return;
   }
   turnCounts.set(sanitized.turnId, n + 1);

@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { formatStatusLine, redactSecrets, sanitizeActivityEvent, truncateUtf8 } from './sanitize.js';
+import {
+  formatStatusLine,
+  parseVisibility,
+  redactSecrets,
+  sanitizeActivityEvent,
+  truncateUtf8,
+  visibilityIncludesReasoning,
+  visibilityIsFull,
+} from './sanitize.js';
 import type { AgentActivityEvent } from './types.js';
 
 function ev(partial: Partial<AgentActivityEvent> & Pick<AgentActivityEvent, 'kind' | 'summary'>): AgentActivityEvent {
@@ -37,18 +45,57 @@ describe('sanitizeActivityEvent', () => {
     expect(sanitizeActivityEvent(ev({ kind: 'tool_start', summary: 'Bash', tool: 'Bash' }), 'off')).toBeNull();
   });
 
-  it('drops reasoning when visibility is trace', () => {
-    expect(
-      sanitizeActivityEvent(ev({ kind: 'reasoning_summary', summary: 'thinking…' }), 'trace'),
-    ).toBeNull();
+  it('keeps reasoning when visibility is trace (default-on)', () => {
+    const out = sanitizeActivityEvent(
+      ev({ kind: 'reasoning_summary', summary: 'I will check the file' }),
+      'trace',
+    );
+    expect(out?.summary).toBe('I will check the file');
   });
 
-  it('keeps reasoning when visibility is trace_reasoning', () => {
+  it('keeps reasoning when visibility is trace_reasoning (alias)', () => {
     const out = sanitizeActivityEvent(
       ev({ kind: 'reasoning_summary', summary: 'I will check the file' }),
       'trace_reasoning',
     );
     expect(out?.summary).toBe('I will check the file');
+  });
+
+  it('keeps reasoning when visibility is trace_full', () => {
+    const out = sanitizeActivityEvent(
+      ev({ kind: 'reasoning_summary', summary: 'planning next step' }),
+      'trace_full',
+    );
+    expect(out?.summary).toBe('planning next step');
+  });
+
+  it('drops reasoning when visibility is status', () => {
+    expect(
+      sanitizeActivityEvent(ev({ kind: 'reasoning_summary', summary: 'thinking…' }), 'status'),
+    ).toBeNull();
+  });
+});
+
+describe('parseVisibility / helpers', () => {
+  it('accepts trace_full', () => {
+    expect(parseVisibility('trace_full')).toBe('trace_full');
+  });
+
+  it('maps unknown to off', () => {
+    expect(parseVisibility('nope')).toBe('off');
+  });
+
+  it('visibilityIncludesReasoning', () => {
+    expect(visibilityIncludesReasoning('trace')).toBe(true);
+    expect(visibilityIncludesReasoning('trace_reasoning')).toBe(true);
+    expect(visibilityIncludesReasoning('trace_full')).toBe(true);
+    expect(visibilityIncludesReasoning('status')).toBe(false);
+    expect(visibilityIncludesReasoning('off')).toBe(false);
+  });
+
+  it('visibilityIsFull', () => {
+    expect(visibilityIsFull('trace_full')).toBe(true);
+    expect(visibilityIsFull('trace')).toBe(false);
   });
 });
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Agenttrace surfaces **live agent activity** (tools, tasks, keepalives; reasoning summaries reserved for a later release) without changing NanoClaw trunk delivery for chat.
+Agenttrace surfaces **live agent activity** (tools, tasks, keepalives, Anthropic summarized reasoning; optional `trace_full` firehose) without changing NanoClaw trunk delivery for chat.
 
 ```
 Claude SDK → container observe → messages_out (kind=system, action=agenttrace_activity)
@@ -40,7 +40,7 @@ Claude SDK → container observe → messages_out (kind=system, action=agenttrac
 | kind | Meaning |
 |------|---------|
 | `turn_start` / `turn_end` | Turn lifecycle |
-| `reasoning_summary` | Reserved — **not emitted in 0.1.0** (deferred until summarized + redacted) |
+| `reasoning_summary` | Anthropic **summarized** thinking (coalesced); never raw CoT / signatures / `redacted_thinking` |
 | `partial_text` | Coalesced partial assistant text |
 | `tool_start` / `tool_progress` / `tool_end` | Tool lifecycle |
 | `task_progress` | Subagent / task updates |
@@ -82,6 +82,15 @@ When webchat implements `publishActivity`:
 | Key | Default | Meaning |
 |-----|---------|---------|
 | `AGENTTRACE_ENABLED` | `false` | Master switch |
-| `AGENTTRACE_DEFAULT_VISIBILITY` | `trace` | `off` \| `status` \| `trace` \| `trace_reasoning` |
+| `AGENTTRACE_DEFAULT_VISIBILITY` | `trace` | `off` \| `status` \| `trace` \| `trace_reasoning` (alias of `trace`) \| `trace_full` |
 | `AGENTTRACE_SILENCE_KEEPALIVE` | `true` | #1440 silence timers |
 | `AGENTTRACE_VISIBILITY` | (inherits) | Optional container override |
+
+### Visibility notes
+
+| Value | Behavior |
+|-------|----------|
+| `status` | Tools / tasks / keepalives only |
+| `trace` (default) | + partial text + summarized reasoning |
+| `trace_reasoning` | Same as `trace` (compat alias; no raw mode) |
+| `trace_full` | + tool inputs/results + subagent transcripts; higher per-turn event cap (500) |
