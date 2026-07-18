@@ -9,6 +9,17 @@ import { CLAUDE_SDKOPTS_MARKER_BEGIN, CLAUDE_SDKOPTS_MARKER_END } from './paths.
 const BRIDGE_KEY = '__nanoclawAgentTraceQueryOptions';
 const WARNED_KEY = '__nanoclawAgentTraceOptsWarned';
 
+/** The broken 0.2.0-dev splice from #5 — sync require() of ESM observe.js (issue #7). */
+const STALE_REQUIRE_BLOCK = `${CLAUDE_SDKOPTS_MARKER_BEGIN}
+        ...(() => {
+          try {
+            return require('../agenttrace/observe.js').agentTraceQueryOptions();
+          } catch {
+            return {};
+          }
+        })(),
+        ${CLAUDE_SDKOPTS_MARKER_END}`;
+
 const FIXTURE_CLAUDE = `import { sdkQuery } from 'sdk';
 
 export function providerQuery(stream: unknown) {
@@ -149,6 +160,59 @@ describe('patchClaudeProvider sdkopts splice', () => {
     expect(errSpy).not.toHaveBeenCalled();
   });
 
+  it('stays silent when AGENTTRACE_ENABLED=false (scaffold default)', async () => {
+    const root = makeFixtureRoot();
+    roots.push(root);
+    patchClaudeProvider(root);
+    const block = extractSdkoptsBlock(readPatchedClaude(root));
+
+    // .env scaffold writes AGENTTRACE_ENABLED=false — a non-empty value that
+    // must parse as disabled, matching observe.ts readVisibility.
+    process.env.AGENTTRACE_ENABLED = 'false';
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const options = await executeSdkoptsBlock(block);
+    expect(options).toEqual({});
+    expect(errSpy).not.toHaveBeenCalled();
+  });
+
+  it('old require-based splice throws under ESM, and its catch turned that into a silent {}', async () => {
+    // Affirmative repro of issue #7: require() of the observe module from an
+    // ES module throws. (Plain Node ESM: ReferenceError — require undefined.
+    // Vitest's loader shims require into the module, so here it surfaces as
+    // MODULE_NOT_FOUND instead. Either way the call throws at runtime.)
+    const bare = `...(() => require('../agenttrace/observe.js').agentTraceQueryOptions())(),`;
+    await expect(executeSdkoptsBlock(bare)).rejects.toThrow();
+
+    // …and the shipped block's try/catch swallowed it: even with the bridge
+    // registered and agenttrace enabled, the old splice yields {} — the exact
+    // silent no-op this PR fixes. The new block (tested above) returns options.
+    process.env.AGENTTRACE_ENABLED = 'true';
+    Reflect.set(globalThis, BRIDGE_KEY, () => ({
+      thinking: { type: 'adaptive', display: 'summarized' },
+    }));
+    const options = await executeSdkoptsBlock(STALE_REQUIRE_BLOCK);
+    expect(options).toEqual({});
+  });
+
+  it('throws on a corrupt sdkopts block (begin marker without end marker)', () => {
+    const root = makeFixtureRoot();
+    roots.push(root);
+    patchClaudeProvider(root);
+
+    const filePath = path.join(root, 'container/agent-runner/src/providers/claude.ts');
+    const patched = fs.readFileSync(filePath, 'utf8');
+    const corrupt = patched.replace(
+      extractSdkoptsBlock(patched),
+      `${CLAUDE_SDKOPTS_MARKER_BEGIN}\n        ...(() => ({}))(),`,
+    );
+    fs.writeFileSync(filePath, corrupt);
+
+    // Silent path would be: strip no-ops, reinsert skipped (begin marker still
+    // present), "changed" reported anyway. Must fail loudly instead.
+    expect(() => patchClaudeProvider(root)).toThrow(/corrupt agenttrace sdkopts block/);
+    expect(fs.readFileSync(filePath, 'utf8')).toBe(corrupt);
+  });
+
   it('upgrade replaces a stale require-based sdkopts block', () => {
     const root = makeFixtureRoot();
     roots.push(root);
@@ -157,19 +221,7 @@ describe('patchClaudeProvider sdkopts splice', () => {
     // Simulate the broken 0.2.0-dev splice (issue #7).
     const filePath = path.join(root, 'container/agent-runner/src/providers/claude.ts');
     const patched = fs.readFileSync(filePath, 'utf8');
-    const staleBlock = `${CLAUDE_SDKOPTS_MARKER_BEGIN}
-        ...(() => {
-          try {
-            return require('../agenttrace/observe.js').agentTraceQueryOptions();
-          } catch {
-            return {};
-          }
-        })(),
-        ${CLAUDE_SDKOPTS_MARKER_END}`;
-    const stale = patched.replace(
-      extractSdkoptsBlock(patched),
-      staleBlock,
-    );
+    const stale = patched.replace(extractSdkoptsBlock(patched), STALE_REQUIRE_BLOCK);
     fs.writeFileSync(filePath, stale);
     expect(hasStaleSdkoptsBlock(stale)).toBe(true);
 

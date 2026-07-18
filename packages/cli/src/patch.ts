@@ -142,8 +142,10 @@ const SDKOPTS_SNIPPET = `
             // of an ES module would throw and silently disable reasoning.
             const bridge = Reflect.get(globalThis, '__nanoclawAgentTraceQueryOptions');
             if (typeof bridge === 'function') return bridge();
+            // Same truthy parse as observe.ts readVisibility — AGENTTRACE_ENABLED=false must stay silent.
+            const enabled = (process.env.AGENTTRACE_ENABLED || '').trim().toLowerCase();
             if (
-              (process.env.AGENTTRACE_ENABLED || '').trim() &&
+              (enabled === '1' || enabled === 'true' || enabled === 'yes') &&
               !Reflect.get(globalThis, '__nanoclawAgentTraceOptsWarned')
             ) {
               Reflect.set(globalThis, '__nanoclawAgentTraceOptsWarned', true);
@@ -194,7 +196,17 @@ export function patchClaudeProvider(nanoclawRoot: string): boolean {
   let changed = false;
 
   if (hasStaleSdkoptsBlock(content)) {
-    content = stripMarkedBlock(content, CLAUDE_SDKOPTS_MARKER_BEGIN, CLAUDE_SDKOPTS_MARKER_END);
+    const stripped = stripMarkedBlock(content, CLAUDE_SDKOPTS_MARKER_BEGIN, CLAUDE_SDKOPTS_MARKER_END);
+    if (stripped === content) {
+      // Begin marker without end marker: stripMarkedBlock is a no-op, and the
+      // reinsert below would be skipped (begin marker still present) — the
+      // stale block would survive while we report success. Fail loudly instead.
+      throw new Error(
+        'claude.ts has a corrupt agenttrace sdkopts block (begin marker without end marker). ' +
+          'Remove the block manually, then re-run upgrade.',
+      );
+    }
+    content = stripped;
     changed = true;
   }
 
