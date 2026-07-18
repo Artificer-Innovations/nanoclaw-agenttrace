@@ -16,6 +16,10 @@
 - Never forward thinking signatures or `redacted_thinking` payloads
 - Cap coalesced thinking buffer before flush; pair `tool_end.tool` with the tool name from `tool_start` (not the opaque tool_use id)
 
+### Patch Changes
+
+- [#8](https://github.com/Artificer-Innovations/nanoclaw-agenttrace/pull/8) — Fix the Claude SDK options splice silently disabling summarized thinking and `trace_full` subagent forwarding. Replace the invalid synchronous `require()` of ESM `observe.js` with a bridge registered during the existing awaited import, log once when an enabled install is missing the bridge, and self-heal stale splice blocks during upgrade. Add a regression test that executes the splice as a real ES module.
+
 ## 0.1.0
 
 - Initial release: host delivery action, container Claude observe patch, silence keepalives (#1440), `/add-agenttrace` skill
