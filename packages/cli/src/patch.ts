@@ -6,6 +6,8 @@ import {
   CLAUDE_OBSERVE_MARKER_END,
   CLAUDE_PARTIAL_MARKER_BEGIN,
   CLAUDE_PARTIAL_MARKER_END,
+  CLAUDE_SDKOPTS_MARKER_BEGIN,
+  CLAUDE_SDKOPTS_MARKER_END,
   CONTAINER_ENV_MARKER_BEGIN,
   CONTAINER_ENV_MARKER_END,
   HOST_COPY_RULES,
@@ -131,6 +133,35 @@ const PARTIAL_SNIPPET = `
         ${CLAUDE_PARTIAL_MARKER_END}
 `;
 
+/** Request Anthropic summarized thinking (+ subagent fan-out under trace_full). */
+const SDKOPTS_SNIPPET = `
+        ${CLAUDE_SDKOPTS_MARKER_BEGIN}
+        ...(() => {
+          try {
+            // Sync env read — keep in sync with agentTraceQueryOptions() in observe.ts
+            const enabled = (process.env.AGENTTRACE_ENABLED || '').trim().toLowerCase();
+            if (enabled !== '1' && enabled !== 'true' && enabled !== 'yes') return {};
+            const raw = (
+              process.env.AGENTTRACE_VISIBILITY ||
+              process.env.AGENTTRACE_DEFAULT_VISIBILITY ||
+              'trace'
+            )
+              .trim()
+              .toLowerCase();
+            if (raw === 'off' || raw === 'status') return {};
+            // Unknown values fall through to summarized thinking (same as default trace).
+            const full = raw === 'trace_full';
+            return {
+              thinking: { type: 'adaptive', display: 'summarized' },
+              ...(full ? { forwardSubagentText: true } : {}),
+            };
+          } catch {
+            return {};
+          }
+        })(),
+        ${CLAUDE_SDKOPTS_MARKER_END}
+`;
+
 const POLL_SNIPPET_MESSAGES = `
     ${POLL_HOOK_MARKER_BEGIN}
     if (messages.length > 0) {
@@ -177,6 +208,29 @@ export function patchClaudeProvider(nanoclawRoot: string): boolean {
     changed = true;
   }
 
+  if (!content.includes(CLAUDE_SDKOPTS_MARKER_BEGIN)) {
+    // Prefer inserting after the partial-messages marker so upgrades land next to it.
+    const afterPartial = content.indexOf(CLAUDE_PARTIAL_MARKER_END);
+    if (afterPartial >= 0) {
+      const insertAt = afterPartial + CLAUDE_PARTIAL_MARKER_END.length;
+      content = content.slice(0, insertAt) + SDKOPTS_SNIPPET + content.slice(insertAt);
+      changed = true;
+    } else {
+      const anchor = 'permissionMode: \'bypassPermissions\',';
+      const idx = content.indexOf(anchor);
+      if (idx >= 0) {
+        content = content.slice(0, idx) + SDKOPTS_SNIPPET + content.slice(idx);
+        changed = true;
+      } else {
+        const alt = 'permissionMode: "bypassPermissions",';
+        const idx2 = content.indexOf(alt);
+        if (idx2 < 0) throw new Error('Could not find permissionMode in claude.ts for sdkopts');
+        content = content.slice(0, idx2) + SDKOPTS_SNIPPET + content.slice(idx2);
+        changed = true;
+      }
+    }
+  }
+
   if (changed) fs.writeFileSync(filePath, content);
   return changed;
 }
@@ -188,6 +242,7 @@ export function unpatchClaudeProvider(nanoclawRoot: string): boolean {
   const before = content;
   content = stripMarkedBlock(content, CLAUDE_OBSERVE_MARKER_BEGIN, CLAUDE_OBSERVE_MARKER_END);
   content = stripMarkedBlock(content, CLAUDE_PARTIAL_MARKER_BEGIN, CLAUDE_PARTIAL_MARKER_END);
+  content = stripMarkedBlock(content, CLAUDE_SDKOPTS_MARKER_BEGIN, CLAUDE_SDKOPTS_MARKER_END);
   if (content !== before) {
     fs.writeFileSync(filePath, content);
     return true;

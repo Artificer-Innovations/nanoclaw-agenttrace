@@ -21,9 +21,14 @@ const BLOCKED_KINDS_BY_VISIBILITY: Record<ActivityVisibility, Set<AgentActivityK
     'compaction',
     'keepalive',
   ]),
+  // Tools / tasks / keepalives only — no reasoning or partial assistant text.
   status: new Set(['reasoning_summary', 'partial_text']),
-  trace: new Set(['reasoning_summary']),
+  // Default: tools + partial text + Anthropic summarized reasoning.
+  trace: new Set(),
+  // Alias of `trace` (kept for API compatibility; no raw CoT mode).
   trace_reasoning: new Set(),
+  // Firehose: same kinds as trace; richer summaries are gated in the observer.
+  trace_full: new Set(),
 };
 
 /** Redact secrets via @sanity-labs/secret-scan (TruffleHog-derived rules; same as Skein). */
@@ -91,8 +96,24 @@ export function formatStatusLine(event: AgentActivityEvent): string {
 }
 
 export function parseVisibility(raw: unknown): ActivityVisibility {
-  if (raw === 'off' || raw === 'status' || raw === 'trace' || raw === 'trace_reasoning') {
+  if (
+    raw === 'off' ||
+    raw === 'status' ||
+    raw === 'trace' ||
+    raw === 'trace_reasoning' ||
+    raw === 'trace_full'
+  ) {
     return raw;
   }
   return 'off';
+}
+
+/** True when Anthropic summarized thinking should be requested and forwarded. */
+export function visibilityIncludesReasoning(visibility: ActivityVisibility): boolean {
+  return visibility === 'trace' || visibility === 'trace_reasoning' || visibility === 'trace_full';
+}
+
+/** True when tool inputs/results and subagent transcripts should be forwarded. */
+export function visibilityIsFull(visibility: ActivityVisibility): boolean {
+  return visibility === 'trace_full';
 }
