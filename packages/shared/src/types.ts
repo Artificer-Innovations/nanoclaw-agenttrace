@@ -2,7 +2,7 @@
  * Portable agent activity events — provider-neutral, privacy-aware.
  *
  * Never includes thinking signatures, redacted_thinking payloads, or credentials.
- * Under `trace_full`, summaries may include redacted tool inputs/results.
+ * Under `trace_full`, summaries may include secret-scanned tool inputs/results.
  */
 
 export type ActivityVisibility = 'off' | 'status' | 'trace' | 'trace_reasoning' | 'trace_full';

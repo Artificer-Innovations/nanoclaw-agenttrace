@@ -127,7 +127,9 @@ See [REMOVE.md](REMOVE.md).
 | `status` | Tools / tasks / keepalives (no reasoning or partial text) |
 | `trace` (default) | Status + partial text + **Anthropic summarized reasoning** |
 | `trace_reasoning` | Alias of `trace` (compat; no raw CoT mode — API does not expose raw CoT) |
-| `trace_full` | Everything in `trace` plus tool inputs/results and subagent transcripts |
+| `trace_full` | Everything in `trace` plus secret-scanned tool inputs/results and subagent transcripts |
+
+`trace_full` payloads are **secret-scanned** (`@sanity-labs/secret-scan`, pattern-based) — credential-shaped strings are stripped, but PII, internal URLs, file paths, and proprietary content pass through truncated. Enable only where that content is acceptable on the timeline.
 
 Host default: `AGENTTRACE_DEFAULT_VISIBILITY`. Per-group override (container env / config blob): `activity_visibility` or `AGENTTRACE_VISIBILITY` at spawn — no trunk CRUD change required if you set it in the group's container config JSON.
 

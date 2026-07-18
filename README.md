@@ -37,7 +37,7 @@ pnpm exec nanoclaw-agenttrace verify
 - Fail-closed: nothing is emitted unless `AGENTTRACE_ENABLED=true`
 - Never forwards thinking signatures or `redacted_thinking` data
 - **0.2.0 forwards Anthropic summarized thinking by default** under `trace` (coalesced `thinking_delta` / completed thinking blocks, then secret-scanned). Existing `AGENTTRACE_ENABLED=true` installs pick this up on upgrade — opt out with `AGENTTRACE_VISIBILITY=status`. Raw chain-of-thought is not available from the API and is never forwarded.
-- Opt-in `trace_full` adds redacted tool inputs/results and subagent transcripts (higher volume)
+- Opt-in `trace_full` adds secret-scanned tool inputs/results and subagent transcripts (higher volume). "Secret-scanned" means `@sanity-labs/secret-scan` (pattern-based, TruffleHog-derived) removes credential-shaped strings — it does **not** scrub PII, internal URLs, file paths, or proprietary content, which pass through truncated. Enable only where that content is acceptable on the timeline.
 - Redacts secrets with [`@sanity-labs/secret-scan@1.1.0`](https://github.com/sanity-labs/secret-scan) (TruffleHog-derived rules; same library Skein uses) on the emit path (container writer + host delivery); truncates long text
 - Visibility: `off` \| `status` \| `trace` \| `trace_reasoning` (alias of `trace`) \| `trace_full` (default `trace` when enabled)
 
