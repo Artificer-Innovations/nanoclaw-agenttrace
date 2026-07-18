@@ -4,7 +4,7 @@
  *
  * Called from a surgical marker patch inside providers/claude.ts translateEvents.
  *
- * 0.1.1: forwards Anthropic summarized thinking under `trace` (default) and
+ * 0.2.0: forwards Anthropic summarized thinking under `trace` (default) and
  * richer tool/subagent detail under `trace_full`. Never forwards signatures
  * or redacted_thinking payloads. Raw CoT is not available from the API.
  */
@@ -24,6 +24,10 @@ let thinkingBuf = '';
 let thinkingTimer: ReturnType<typeof setTimeout> | null = null;
 /** True while the current stream content block is a thinking block. */
 let streamingThinking = false;
+/** tool_use id → name so tool_end can pair with tool_start in the UI. */
+const toolNamesById = new Map<string, string>();
+/** Hard cap on coalesced thinking before an early flush (malformed streams). */
+const MAX_THINKING_BUF_CHARS = 16_000;
 
 /**
  * Fail-closed: emit nothing unless AGENTTRACE_ENABLED is truthy.
@@ -92,6 +96,10 @@ function appendThinkingDelta(chunk: string): void {
   if (!includesReasoning(visibility)) return;
   if (!chunk) return;
   thinkingBuf += chunk;
+  if (thinkingBuf.length >= MAX_THINKING_BUF_CHARS) {
+    flushThinkingBuffer();
+    return;
+  }
   const wait = isFull(visibility) ? THINKING_COALESCE_FULL_MS : THINKING_COALESCE_MS;
   if (thinkingTimer) return;
   thinkingTimer = setTimeout(() => {
@@ -202,6 +210,7 @@ export function observeClaudeSdkMessage(message: unknown): void {
             emit('partial_text', text.slice(0, isFull(visibility) ? 2000 : 500));
           }
         } else if (b.type === 'tool_use' && typeof b.name === 'string') {
+          if (typeof b.id === 'string' && b.id) toolNamesById.set(b.id, b.name);
           if (isFull(visibility)) {
             emit('tool_start', formatToolInput(b.name, b.input), { tool: b.name, phase: 'tool' });
           } else {
@@ -228,9 +237,13 @@ export function observeClaudeSdkMessage(message: unknown): void {
             ? `Finished: ${snippet}`
             : 'Finished tool';
         emit('tool_end', summary, {
-          tool: typeof b.tool_use_id === 'string' ? b.tool_use_id : undefined,
+          tool:
+            typeof b.tool_use_id === 'string'
+              ? (toolNamesById.get(b.tool_use_id) ?? b.tool_use_id)
+              : undefined,
           phase: 'tool',
         });
+        if (typeof b.tool_use_id === 'string') toolNamesById.delete(b.tool_use_id);
       }
       return;
     }
@@ -300,6 +313,7 @@ export function observeClaudeSdkMessage(message: unknown): void {
 
     if (type === 'result') {
       flushThinkingBuffer();
+      toolNamesById.clear();
       emit('turn_end', 'Done');
     }
   } catch {
@@ -310,6 +324,7 @@ export function observeClaudeSdkMessage(message: unknown): void {
 /** Mark a new user turn (call when processing a new inbound batch). */
 export function beginAgentTraceTurn(inboundId?: string): void {
   flushThinkingBuffer();
+  toolNamesById.clear();
   setAgentTraceTurnId(inboundId || `turn-${Date.now()}`);
   emit('turn_start', 'Working…');
 }

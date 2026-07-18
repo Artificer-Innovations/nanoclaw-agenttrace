@@ -4,7 +4,7 @@
 
 ```bash
 cd /path/to/nanoclaw
-pnpm add nanoclaw-agenttrace@0.1.1   # or: pnpm add file:../nanoclaw-agenttrace
+pnpm add nanoclaw-agenttrace@0.2.0   # or: pnpm add file:../nanoclaw-agenttrace
 pnpm exec nanoclaw-agenttrace install
 ```
 

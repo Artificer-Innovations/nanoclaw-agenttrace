@@ -133,28 +133,14 @@ const PARTIAL_SNIPPET = `
         ${CLAUDE_PARTIAL_MARKER_END}
 `;
 
-/** Request Anthropic summarized thinking (+ subagent fan-out under trace_full). */
 const SDKOPTS_SNIPPET = `
         ${CLAUDE_SDKOPTS_MARKER_BEGIN}
         ...(() => {
           try {
-            // Sync env read — keep in sync with agentTraceQueryOptions() in observe.ts
-            const enabled = (process.env.AGENTTRACE_ENABLED || '').trim().toLowerCase();
-            if (enabled !== '1' && enabled !== 'true' && enabled !== 'yes') return {};
-            const raw = (
-              process.env.AGENTTRACE_VISIBILITY ||
-              process.env.AGENTTRACE_DEFAULT_VISIBILITY ||
-              'trace'
-            )
-              .trim()
-              .toLowerCase();
-            if (raw === 'off' || raw === 'status') return {};
-            // Unknown values fall through to summarized thinking (same as default trace).
-            const full = raw === 'trace_full';
-            return {
-              thinking: { type: 'adaptive', display: 'summarized' },
-              ...(full ? { forwardSubagentText: true } : {}),
-            };
+            // Sync require of the same module the async observe hook imports —
+            // single source of truth for summarized-thinking / trace_full options.
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            return require('../agenttrace/observe.js').agentTraceQueryOptions();
           } catch {
             return {};
           }

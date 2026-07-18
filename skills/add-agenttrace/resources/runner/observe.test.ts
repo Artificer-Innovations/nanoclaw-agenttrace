@@ -151,6 +151,29 @@ describe('observeClaudeSdkMessage', () => {
     expect(lastEvent().summary).toBe('Step one. Step two.');
   });
 
+  it('flushes early when the thinking buffer hits the hard cap', async () => {
+    const { observeClaudeSdkMessage, beginAgentTraceTurn, refreshAgentTraceVisibility } = await import('./observe.js');
+    refreshAgentTraceVisibility();
+    beginAgentTraceTurn('msg-cap');
+    writes.length = 0;
+
+    observeClaudeSdkMessage({
+      type: 'stream_event',
+      event: { type: 'content_block_start', content_block: { type: 'thinking' } },
+    });
+    observeClaudeSdkMessage({
+      type: 'stream_event',
+      event: {
+        type: 'content_block_delta',
+        delta: { type: 'thinking_delta', thinking: 'x'.repeat(16_000) },
+      },
+    });
+
+    expect(writes.length).toBeGreaterThanOrEqual(1);
+    expect(lastEvent().kind).toBe('reasoning_summary');
+    expect(lastEvent().summary.length).toBeLessThanOrEqual(2000);
+  });
+
   it('includes tool input under trace_full', async () => {
     process.env.AGENTTRACE_VISIBILITY = 'trace_full';
     const { observeClaudeSdkMessage, beginAgentTraceTurn, refreshAgentTraceVisibility } = await import('./observe.js');
@@ -177,6 +200,12 @@ describe('observeClaudeSdkMessage', () => {
     writes.length = 0;
 
     observeClaudeSdkMessage({
+      type: 'assistant',
+      message: {
+        content: [{ type: 'tool_use', name: 'Bash', id: 't1', input: { command: 'ls' } }],
+      },
+    });
+    observeClaudeSdkMessage({
       type: 'user',
       message: {
         content: [{ type: 'tool_result', tool_use_id: 't1', content: 'file1.txt\nfile2.txt' }],
@@ -184,6 +213,7 @@ describe('observeClaudeSdkMessage', () => {
     });
 
     expect(lastEvent().kind).toBe('tool_end');
+    expect(lastEvent().tool).toBe('Bash');
     expect(lastEvent().summary).toContain('Finished:');
     expect(lastEvent().summary).toContain('file1.txt');
   });
