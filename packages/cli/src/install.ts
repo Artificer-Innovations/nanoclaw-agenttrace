@@ -5,6 +5,7 @@ import {
   copyRunnerFiles,
   ensureSecretScanDependency,
   hasAgentTraceBootBlock,
+  hasStaleSdkoptsBlock,
   insertAgentTraceBootBlock,
   patchClaudeProvider,
   patchContainerRunner,
@@ -142,6 +143,10 @@ export function runVerify(root?: string): {
     }
     if (!claudeSrc.includes(CLAUDE_SDKOPTS_MARKER_BEGIN)) {
       issues.push('claude.ts missing agenttrace thinking/sdkopts patch (run upgrade)');
+    } else if (hasStaleSdkoptsBlock(claudeSrc)) {
+      issues.push(
+        'claude.ts has a stale sdkopts patch that never activates summarized thinking (run upgrade)',
+      );
     }
   }
 
