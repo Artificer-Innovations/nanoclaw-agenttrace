@@ -2,6 +2,10 @@
 
 ## 0.2.0
 
+### Minor Changes
+
+- [#5](https://github.com/Artificer-Innovations/nanoclaw-agenttrace/pull/5) — Summarized reasoning under default `trace` + opt-in `trace_full` firehose.
+
 **Upgrade note:** existing installs with `AGENTTRACE_ENABLED=true` and the default `trace` visibility will begin receiving Anthropic **summarized** reasoning (`reasoning_summary`) on the activity timeline after upgrade + reinstall/rebuild — no new env var required. Opt out with `AGENTTRACE_VISIBILITY=status` (or `off`). The optional `trace_full` firehose remains opt-in only.
 
 - Forward Anthropic **summarized** thinking under default `trace` (`reasoning_summary`), coalesced from `thinking_delta` / completed thinking blocks and secret-scanned before write
