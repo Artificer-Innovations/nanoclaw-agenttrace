@@ -1,6 +1,6 @@
 ---
 name: add-agenttrace
-description: Add live agent activity traces (tools, tasks, reasoning summaries, silence keepalives) via nanoclaw-agenttrace. Installs host sidecar + container observe patches.
+description: Add live agent activity traces (tools, tasks, reasoning summaries, silence keepalives) via nanoclaw-agenttrace and nanoclaw-hosthooks.
 ---
 
 # /add-agenttrace — Live Agent Activity Trace
@@ -15,6 +15,8 @@ See also: [QUICKSTART.md](../../QUICKSTART.md) in the npm package.
 
 - Working NanoClaw v2 install with `pnpm`
 - Node.js ≥ 20 (22 recommended)
+- `nanoclaw-hosthooks` API v1 installed in the host and runner
+- Container rebuilt after installing hosthooks
 
 ## Architecture
 
@@ -42,6 +44,7 @@ Skip to **Enable** if all of these are already in place:
 - `src/agenttrace-boot.ts` exists
 - `container/agent-runner/src/agenttrace/observe.ts` exists
 - `src/index.ts` contains `await startAgentTrace()`
+- `src/hosthooks.ts` and `container/agent-runner/src/hosthooks.ts` expose API v1
 - `nanoclaw-agenttrace` is listed in `package.json`
 
 Otherwise continue. Every step is safe to re-run.
@@ -74,11 +77,14 @@ This will:
 
 1. Copy host adapter sources into `src/agenttrace-*.ts`
 2. Copy runner modules into `container/agent-runner/src/agenttrace/`
-3. Insert the `startAgentTrace()` boot block in `src/index.ts`
-4. Patch `providers/claude.ts` with observe + `includePartialMessages` + summarized-thinking SDK options
-5. Optionally patch `poll-loop.ts` for turn_start hooks
-6. Scaffold `.env` keys (`AGENTTRACE_ENABLED=false` by default)
-7. Sync this skill to `.claude/skills/add-agenttrace/`
+3. Insert the host `startAgentTrace()` boot block and runner registration import
+4. Register Claude observation, partial/summarized-thinking options, inbound
+   turn boundaries, and container environment forwarding through hosthooks
+5. Scaffold `.env` keys (`AGENTTRACE_ENABLED=false` by default)
+6. Sync this skill to `.claude/skills/add-agenttrace/`
+
+The installer fails clearly when hosthooks API v1 or its call sites are
+missing. Install `nanoclaw-hosthooks` first and rebuild the container.
 
 ### 3. Enable
 

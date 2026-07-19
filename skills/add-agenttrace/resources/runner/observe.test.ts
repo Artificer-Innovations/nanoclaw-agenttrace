@@ -274,15 +274,4 @@ describe('observeClaudeSdkMessage', () => {
     });
   });
 
-  it('registers the global bridge for the claude.ts sdkopts splice on import', async () => {
-    // The sdkopts splice builds options synchronously and reads this global
-    // instead of require()-ing ESM observe.js (issue #7).
-    const { agentTraceQueryOptions } = await import('./observe.js');
-    const bridge = Reflect.get(globalThis, '__nanoclawAgentTraceQueryOptions');
-    expect(bridge).toBe(agentTraceQueryOptions);
-    process.env.AGENTTRACE_VISIBILITY = 'trace';
-    expect((bridge as () => object)()).toEqual({
-      thinking: { type: 'adaptive', display: 'summarized' },
-    });
-  });
 });

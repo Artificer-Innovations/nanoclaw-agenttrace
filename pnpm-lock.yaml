@@ -17,6 +17,9 @@ importers:
       '@types/node':
         specifier: ^22.15.30
         version: 22.20.1
+      nanoclaw-hosthooks:
+        specifier: ^0.1.0
+        version: 0.1.0
       typescript:
         specifier: ^5.8.3
         version: 5.9.3
@@ -724,6 +727,11 @@ packages:
 
   ms@2.1.3:
     resolution: {integrity: sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==}
+
+  nanoclaw-hosthooks@0.1.0:
+    resolution: {integrity: sha512-9GO65lL6p3u01GklSSlsBBQCs7uDyZm+7tTpg8AvcEMqhbLKVd8/kFcU460AyJDkZ8tK4y2PEMZeCwFf9fRX7g==}
+    engines: {node: '>=20'}
+    hasBin: true
 
   nanoid@3.3.16:
     resolution: {integrity: sha512-bzlKTyNJ7+LdGIIwy8ijFpIqEQIvafahV7eYykJ8Cvh42EdJeODoJ6gUJXpQJvej1BddH8OqTXZNE/KfbWAu8Q==}
@@ -1653,6 +1661,8 @@ snapshots:
   mri@1.2.0: {}
 
   ms@2.1.3: {}
+
+  nanoclaw-hosthooks@0.1.0: {}
 
   nanoid@3.3.16: {}
 
