@@ -27,7 +27,12 @@ function installHosthooksFixture(root: string): void {
   write(
     root,
     'src/hosthooks.ts',
-    'export const HOSTHOOKS_API_VERSION = 1;\nregisterContainerEnvContributor;\ncontainerEnv: true',
+    [
+      'export const HOSTHOOKS_API_VERSION = 1;',
+      'registerContainerEnvContributor;',
+      'containerEnv: true',
+      'probeHosthooksCapabilities',
+    ].join('\n'),
   );
   write(
     root,
@@ -40,6 +45,7 @@ function installHosthooksFixture(root: string): void {
       'providerMessageObserver: true;',
       'providerQueryOptions: true;',
       'inboundBatchObserver: true;',
+      'probeHosthooksCapabilities',
     ].join('\n'),
   );
   write(root, 'src/container-runner.ts', '// @nanoclaw-hosthooks:container-env:begin');
@@ -73,7 +79,7 @@ describe('hosthooks prerequisite', () => {
   it('fails with actionable install and rebuild guidance', () => {
     const root = makeRoot();
     expect(() => requireHosthooks(root)).toThrow(
-      /Install nanoclaw-hosthooks first, then rebuild the host and container image/,
+      /Install nanoclaw-hosthooks@\^0\.1\.0 \(API v1\) first/,
     );
   });
 });
