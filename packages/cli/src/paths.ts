@@ -110,29 +110,22 @@ export const RUNNER_COPY_RULES: CopyRule[] = [
   { source: 'writer.ts', dest: 'container/agent-runner/src/agenttrace/writer.ts' },
   { source: 'observe.ts', dest: 'container/agent-runner/src/agenttrace/observe.ts' },
   { source: 'poll-hook.ts', dest: 'container/agent-runner/src/agenttrace/poll-hook.ts' },
+  { source: 'register.ts', dest: 'container/agent-runner/src/agenttrace/register.ts' },
 ];
 
 export const RUNNER_OPTIONAL_COPY_RULES: CopyRule[] = [
   { source: 'observe.test.ts', dest: 'container/agent-runner/src/agenttrace/observe.test.ts' },
+  { source: 'register.test.ts', dest: 'container/agent-runner/src/agenttrace/register.test.ts' },
 ];
 
 export const AGENTTRACE_BOOT_BLOCK = `  const { startAgentTrace } = await import('./agenttrace-boot.js');
   await startAgentTrace();`;
 
+export const AGENTTRACE_RUNNER_BOOT_BLOCK =
+  "import './agenttrace/register.js'; // @nanoclaw-agenttrace-runner";
+
 export const REQUIRED_HOST_FILES = HOST_COPY_RULES.map((r) => r.dest);
 export const REQUIRED_RUNNER_FILES = RUNNER_COPY_RULES.map((r) => r.dest);
-
-/** Marker comments for surgical claude.ts patch */
-export const CLAUDE_OBSERVE_MARKER_BEGIN = '// @nanoclaw-agenttrace-observe-begin';
-export const CLAUDE_OBSERVE_MARKER_END = '// @nanoclaw-agenttrace-observe-end';
-export const CLAUDE_PARTIAL_MARKER_BEGIN = '// @nanoclaw-agenttrace-partial-begin';
-export const CLAUDE_PARTIAL_MARKER_END = '// @nanoclaw-agenttrace-partial-end';
-export const CLAUDE_SDKOPTS_MARKER_BEGIN = '// @nanoclaw-agenttrace-sdkopts-begin';
-export const CLAUDE_SDKOPTS_MARKER_END = '// @nanoclaw-agenttrace-sdkopts-end';
-export const POLL_HOOK_MARKER_BEGIN = '// @nanoclaw-agenttrace-poll-begin';
-export const POLL_HOOK_MARKER_END = '// @nanoclaw-agenttrace-poll-end';
-export const CONTAINER_ENV_MARKER_BEGIN = '// @nanoclaw-agenttrace-env-begin';
-export const CONTAINER_ENV_MARKER_END = '// @nanoclaw-agenttrace-env-end';
 
 export function findNanoclawRoot(start = process.cwd()): string {
   let dir = path.resolve(start);

@@ -5,50 +5,46 @@ vi.mock('./env.js', () => ({
 }));
 
 import { readEnvFile } from './env.js';
-import { agentTraceEnvArgs } from './agenttrace-env.js';
+import { agentTraceContainerEnv } from './agenttrace-env.js';
 
-describe('agentTraceEnvArgs', () => {
+describe('agentTraceContainerEnv', () => {
   beforeEach(() => {
     vi.mocked(readEnvFile).mockReturnValue({});
   });
 
   it('forwards enabled + visibility from process env', () => {
     expect(
-      agentTraceEnvArgs(
+      agentTraceContainerEnv(
         {
           AGENTTRACE_ENABLED: 'true',
           AGENTTRACE_DEFAULT_VISIBILITY: 'trace',
         },
         {},
       ),
-    ).toEqual([
-      '-e',
-      'AGENTTRACE_ENABLED=true',
-      '-e',
-      'AGENTTRACE_DEFAULT_VISIBILITY=trace',
-    ]);
+    ).toEqual({
+      AGENTTRACE_ENABLED: 'true',
+      AGENTTRACE_DEFAULT_VISIBILITY: 'trace',
+    });
   });
 
   it('prefers process env over file env and skips blanks', () => {
     expect(
-      agentTraceEnvArgs(
+      agentTraceContainerEnv(
         { AGENTTRACE_ENABLED: 'true', AGENTTRACE_VISIBILITY: '  ' },
         { AGENTTRACE_ENABLED: 'false', AGENTTRACE_DEFAULT_VISIBILITY: 'status' },
       ),
-    ).toEqual([
-      '-e',
-      'AGENTTRACE_ENABLED=true',
-      '-e',
-      'AGENTTRACE_DEFAULT_VISIBILITY=status',
-    ]);
+    ).toEqual({
+      AGENTTRACE_ENABLED: 'true',
+      AGENTTRACE_DEFAULT_VISIBILITY: 'status',
+    });
   });
 
   it('reads from .env via readEnvFile when process env is empty', () => {
     vi.mocked(readEnvFile).mockReturnValue({ AGENTTRACE_ENABLED: 'true' });
-    expect(agentTraceEnvArgs({})).toEqual(['-e', 'AGENTTRACE_ENABLED=true']);
+    expect(agentTraceContainerEnv({})).toEqual({ AGENTTRACE_ENABLED: 'true' });
   });
 
   it('returns empty when nothing is set', () => {
-    expect(agentTraceEnvArgs({}, {})).toEqual([]);
+    expect(agentTraceContainerEnv({}, {})).toEqual({});
   });
 });

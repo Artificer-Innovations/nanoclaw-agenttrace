@@ -329,11 +329,7 @@ export function beginAgentTraceTurn(inboundId?: string): void {
   emit('turn_start', 'Working…');
 }
 
-/**
- * SDK options for the Claude provider patch — request Anthropic summarized
- * thinking (and subagent forwarding under trace_full). Sync + env-driven so
- * the options object in claude.ts can spread it without an async import.
- */
+/** SDK options contributed synchronously through nanoclaw-hosthooks. */
 export function agentTraceQueryOptions(): {
   thinking?: { type: 'adaptive'; display: 'summarized' };
   forwardSubagentText?: boolean;
@@ -345,11 +341,3 @@ export function agentTraceQueryOptions(): {
     ...(isFull(v) ? { forwardSubagentText: true } : {}),
   };
 }
-
-// claude.ts builds its SDK options object synchronously, so it cannot
-// `await import()` this module — and `require()` of an ES module throws
-// (ReferenceError under ESM, ERR_REQUIRE_ESM on Node < 22.12; issue #7).
-// Register a global bridge instead: the poll-loop hook async-imports
-// observe.js before each provider query, so this is primed before the
-// sdkopts splice in claude.ts reads it.
-Reflect.set(globalThis, '__nanoclawAgentTraceQueryOptions', agentTraceQueryOptions);

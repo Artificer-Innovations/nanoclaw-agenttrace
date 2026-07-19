@@ -14,17 +14,17 @@ const KEYS = [
   'AGENTTRACE_VISIBILITY',
 ] as const;
 
-/** Docker `-e` args for agenttrace container env. */
-export function agentTraceEnvArgs(
+/** Environment contributed to agent containers through nanoclaw-hosthooks. */
+export function agentTraceContainerEnv(
   env: NodeJS.ProcessEnv = process.env,
   fileEnv?: Record<string, string | undefined>,
-): string[] {
+): Record<string, string> {
   const fromFile = fileEnv ?? readEnvFile([...KEYS]);
-  const args: string[] = [];
+  const values: Record<string, string> = {};
   for (const key of KEYS) {
     const value = (env[key] ?? fromFile[key] ?? '').trim();
     if (!value) continue;
-    args.push('-e', `${key}=${value}`);
+    values[key] = value;
   }
-  return args;
+  return values;
 }

@@ -5,39 +5,30 @@ import {
   copyRunnerFiles,
   ensureSecretScanDependency,
   hasAgentTraceBootBlock,
-  hasStaleSdkoptsBlock,
   insertAgentTraceBootBlock,
-  patchClaudeProvider,
-  patchContainerRunner,
-  patchPollLoop,
+  insertAgentTraceRunnerBootBlock,
   removeAgentTraceBootBlock,
+  removeAgentTraceRunnerBootBlock,
   removeEnvVars,
   removeHostFiles,
   removeRunnerFiles,
   scaffoldEnv,
   syncSkillToFork,
-  unpatchClaudeProvider,
-  unpatchContainerRunner,
-  unpatchPollLoop,
 } from './patch.js';
+import { findHosthooksIssues, hosthooksInstallGuidance, requireHosthooks } from './hosthooks.js';
 import {
+  AGENTTRACE_RUNNER_BOOT_BLOCK,
   findNanoclawRoot,
   readPackageVersion,
   REQUIRED_HOST_FILES,
   REQUIRED_RUNNER_FILES,
-  CLAUDE_OBSERVE_MARKER_BEGIN,
-  CLAUDE_SDKOPTS_MARKER_BEGIN,
-  CONTAINER_ENV_MARKER_BEGIN,
-  POLL_HOOK_MARKER_BEGIN,
 } from './paths.js';
 
 export interface InstallResult {
   root: string;
   copied: string[];
   bootPatched: boolean;
-  claudePatched: boolean;
-  pollPatched: boolean;
-  containerEnvPatched: boolean;
+  runnerBootPatched: boolean;
   env: { created: string[]; skipped: string[] };
   secretScan: { hostAdded: boolean; runnerAdded: boolean };
   version: string;
@@ -48,13 +39,12 @@ export interface InstallResult {
 export function runInstall(root?: string): InstallResult {
   const nanoclawRoot = root ?? findNanoclawRoot();
   console.log(`Detected NanoClaw root: ${nanoclawRoot}`);
+  requireHosthooks(nanoclawRoot);
   const skillPath = syncSkillToFork(nanoclawRoot);
   const hostCopied = copyHostFiles(nanoclawRoot);
   const runnerCopied = copyRunnerFiles(nanoclawRoot);
   const bootPatched = insertAgentTraceBootBlock(nanoclawRoot);
-  const claudePatched = patchClaudeProvider(nanoclawRoot);
-  const pollPatched = patchPollLoop(nanoclawRoot);
-  const containerEnvPatched = patchContainerRunner(nanoclawRoot);
+  const runnerBootPatched = insertAgentTraceRunnerBootBlock(nanoclawRoot);
   const env = scaffoldEnv(nanoclawRoot);
   const secretScan = ensureSecretScanDependency(nanoclawRoot);
   const webchatDetected =
@@ -65,9 +55,7 @@ export function runInstall(root?: string): InstallResult {
     root: nanoclawRoot,
     copied: [...hostCopied, ...runnerCopied],
     bootPatched,
-    claudePatched,
-    pollPatched,
-    containerEnvPatched,
+    runnerBootPatched,
     env,
     secretScan,
     version: readPackageVersion(),
@@ -84,17 +72,13 @@ export function runUninstall(root?: string): {
   root: string;
   removedFiles: string[];
   bootRemoved: boolean;
-  claudeUnpatched: boolean;
-  pollUnpatched: boolean;
-  containerEnvUnpatched: boolean;
+  runnerBootRemoved: boolean;
   envRemoved: string[];
 } {
   const nanoclawRoot = root ?? findNanoclawRoot();
   const removedFiles = [...removeHostFiles(nanoclawRoot), ...removeRunnerFiles(nanoclawRoot)];
   const bootRemoved = removeAgentTraceBootBlock(nanoclawRoot);
-  const claudeUnpatched = unpatchClaudeProvider(nanoclawRoot);
-  const pollUnpatched = unpatchPollLoop(nanoclawRoot);
-  const containerEnvUnpatched = unpatchContainerRunner(nanoclawRoot);
+  const runnerBootRemoved = removeAgentTraceRunnerBootBlock(nanoclawRoot);
   const envRemoved = removeEnvVars(nanoclawRoot);
 
   const skillDest = path.join(nanoclawRoot, '.claude/skills/add-agenttrace');
@@ -107,9 +91,7 @@ export function runUninstall(root?: string): {
     root: nanoclawRoot,
     removedFiles,
     bootRemoved,
-    claudeUnpatched,
-    pollUnpatched,
-    containerEnvUnpatched,
+    runnerBootRemoved,
     envRemoved,
   };
 }
@@ -120,7 +102,10 @@ export function runVerify(root?: string): {
   issues: string[];
 } {
   const nanoclawRoot = root ?? findNanoclawRoot();
-  const issues: string[] = [];
+  const hosthooksIssues = findHosthooksIssues(nanoclawRoot);
+  const issues: string[] = hosthooksIssues.map(
+    (issue) => `${issue}; ${hosthooksInstallGuidance()}`,
+  );
 
   for (const rel of [...REQUIRED_HOST_FILES, ...REQUIRED_RUNNER_FILES]) {
     if (!fs.existsSync(path.join(nanoclawRoot, rel))) {
@@ -135,29 +120,11 @@ export function runVerify(root?: string): {
     issues.push('src/index.ts missing startAgentTrace() boot block');
   }
 
-  const claudePath = path.join(nanoclawRoot, 'container/agent-runner/src/providers/claude.ts');
-  if (fs.existsSync(claudePath)) {
-    const claudeSrc = fs.readFileSync(claudePath, 'utf8');
-    if (!claudeSrc.includes(CLAUDE_OBSERVE_MARKER_BEGIN)) {
-      issues.push('claude.ts missing agenttrace observe patch');
-    }
-    if (!claudeSrc.includes(CLAUDE_SDKOPTS_MARKER_BEGIN)) {
-      issues.push('claude.ts missing agenttrace thinking/sdkopts patch (run upgrade)');
-    } else if (hasStaleSdkoptsBlock(claudeSrc)) {
-      issues.push(
-        'claude.ts has a stale sdkopts patch that never activates summarized thinking (run upgrade)',
-      );
-    }
-  }
-
-  const pollPath = path.join(nanoclawRoot, 'container/agent-runner/src/poll-loop.ts');
-  if (fs.existsSync(pollPath) && !fs.readFileSync(pollPath, 'utf8').includes(POLL_HOOK_MARKER_BEGIN)) {
-    issues.push('poll-loop.ts missing agenttrace turn-boundary hook');
-  }
-
-  const runnerPath = path.join(nanoclawRoot, 'src/container-runner.ts');
-  if (fs.existsSync(runnerPath) && !fs.readFileSync(runnerPath, 'utf8').includes(CONTAINER_ENV_MARKER_BEGIN)) {
-    issues.push('container-runner.ts missing AGENTTRACE env forwarding');
+  const runnerIndexPath = path.join(nanoclawRoot, 'container/agent-runner/src/index.ts');
+  if (!fs.existsSync(runnerIndexPath)) {
+    issues.push('missing container/agent-runner/src/index.ts');
+  } else if (!fs.readFileSync(runnerIndexPath, 'utf8').includes(AGENTTRACE_RUNNER_BOOT_BLOCK)) {
+    issues.push('container/agent-runner/src/index.ts missing agenttrace registration import');
   }
 
   return { root: nanoclawRoot, ok: issues.length === 0, issues };
@@ -187,7 +154,7 @@ export function printInstallNextSteps(
   console.log('  1. Set AGENTTRACE_ENABLED=true in .env (ships disabled / fail-closed).');
   console.log('  2. pnpm install && (cd container/agent-runner && bun install)');
   console.log('  3. pnpm run build');
-  console.log('  4. ./container/build.sh   # required — runner patches live in the image');
+  console.log('  4. ./container/build.sh   # required — runner registrations live in the image');
   console.log('  5. pnpm exec nanoclaw-agenttrace verify');
   console.log('  6. # restart your NanoClaw host service');
 }

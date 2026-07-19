@@ -35,12 +35,14 @@ If the CLI is unavailable, reverse by hand:
    await startAgentTrace();
    ```
 
-4. In `container/agent-runner/src/providers/claude.ts`, delete marked blocks:
-   - `// @nanoclaw-agenttrace-observe-begin` … `// @nanoclaw-agenttrace-observe-end`
-   - `// @nanoclaw-agenttrace-partial-begin` … `// @nanoclaw-agenttrace-partial-end`
+4. Remove from `container/agent-runner/src/index.ts`:
+   ```ts
+   import './agenttrace/register.js'; // @nanoclaw-agenttrace-runner
+   ```
 
-5. In `container/agent-runner/src/poll-loop.ts`, delete:
-   - `// @nanoclaw-agenttrace-poll-begin` … `// @nanoclaw-agenttrace-poll-end`
+5. Leave all `@nanoclaw-hosthooks` marker blocks and both `hosthooks.ts`
+   registry modules in place. They are owned by `nanoclaw-hosthooks`, not
+   agenttrace.
 
 6. Remove `.env` keys: `AGENTTRACE_ENABLED`, `AGENTTRACE_DEFAULT_VISIBILITY`, `AGENTTRACE_SILENCE_KEEPALIVE`
 
