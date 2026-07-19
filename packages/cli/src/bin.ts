@@ -73,11 +73,11 @@ export function runCommand(argv: string[]): number {
         console.log(`Usage: nanoclaw-agenttrace <command> [--path <nanoclaw-root>]
 
 Commands:
-  install      Copy host+runner files, patch boot/claude, scaffold .env, sync skill
-  upgrade      Re-copy + re-patch (idempotent install)
+  install      Register with hosthooks, copy files, patch boot, scaffold .env
+  upgrade      Re-copy + re-register (idempotent install)
   sync-skill   Copy bundled skill to .claude/skills/add-agenttrace/
-  verify       Check files, boot patch, and claude observe marker
-  uninstall    Remove files, patches, and scaffolded env keys
+  verify       Check hosthooks capabilities, files, and boot registration
+  uninstall    Remove agenttrace files, boot imports, and scaffolded env keys
 `);
         return command === 'help' ? 0 : 1;
     }

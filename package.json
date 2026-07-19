@@ -44,6 +44,14 @@
   "engines": {
     "node": ">=20"
   },
+  "peerDependencies": {
+    "nanoclaw-hosthooks": "^0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "nanoclaw-hosthooks": {
+      "optional": true
+    }
+  },
   "publishConfig": {
     "access": "public",
     "provenance": true
@@ -52,6 +60,7 @@
     "@changesets/changelog-github": "^0.5.1",
     "@changesets/cli": "^2.29.4",
     "@types/node": "^22.15.30",
+    "nanoclaw-hosthooks": "^0.1.0",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"
   },

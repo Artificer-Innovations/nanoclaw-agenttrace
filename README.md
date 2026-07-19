@@ -10,7 +10,16 @@ NanoClaw keeps trunk small. This ships as `nanoclaw-agenttrace` + `/add-agenttra
 
 ## Install
 
+Install [`nanoclaw-hosthooks`](https://github.com/Artificer-Innovations/nanoclaw-hosthooks)
+API v1 first. Its host and runner registries must be installed, and the
+container must be rebuilt before agenttrace can register its observers.
+
 ```bash
+pnpm add nanoclaw-hosthooks
+pnpm exec nanoclaw-hosthooks install
+pnpm run build
+./container/build.sh
+
 pnpm add nanoclaw-agenttrace@0.2.0
 # or local peer:
 pnpm add file:../nanoclaw-agenttrace
@@ -22,6 +31,10 @@ pnpm run build
 pnpm exec nanoclaw-agenttrace verify
 # restart host
 ```
+
+Agenttrace registers container environment forwarding, Claude message
+observation/query options, and inbound turn boundaries through hosthooks. It
+does not patch `claude.ts`, `poll-loop.ts`, or `container-runner.ts` directly.
 
 ## What you get
 

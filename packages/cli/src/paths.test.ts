@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   AGENTTRACE_BOOT_BLOCK,
+  AGENTTRACE_RUNNER_BOOT_BLOCK,
   HOST_COPY_RULES,
   REQUIRED_HOST_FILES,
   REQUIRED_RUNNER_FILES,
@@ -20,5 +21,9 @@ describe('paths', () => {
   it('boot block imports agenttrace-boot', () => {
     expect(AGENTTRACE_BOOT_BLOCK).toContain('agenttrace-boot.js');
     expect(AGENTTRACE_BOOT_BLOCK).toContain('startAgentTrace');
+  });
+
+  it('runner boot block loads hosthook registrations', () => {
+    expect(AGENTTRACE_RUNNER_BOOT_BLOCK).toContain('agenttrace/register.js');
   });
 });

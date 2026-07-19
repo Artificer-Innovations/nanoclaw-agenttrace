@@ -4,8 +4,10 @@
  */
 import { resolveAgentTraceConfig } from './agenttrace-config.js';
 import { registerAgentTraceDelivery } from './agenttrace-delivery.js';
+import { agentTraceContainerEnv } from './agenttrace-env.js';
 import { startSilenceKeepalive, stopSilenceKeepalive } from './agenttrace-silence.js';
 import { readEnvFile } from './env.js';
+import { registerContainerEnvContributor } from './hosthooks.js';
 import { log } from './log.js';
 import { onShutdown } from './response-registry.js';
 
@@ -23,6 +25,7 @@ export async function startAgentTrace(): Promise<void> {
   }
 
   registerAgentTraceDelivery();
+  registerContainerEnvContributor('agenttrace', agentTraceContainerEnv);
 
   if (config.silenceKeepalive) {
     startSilenceKeepalive();
