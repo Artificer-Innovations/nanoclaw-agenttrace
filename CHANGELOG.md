@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0
+
+### Minor Changes
+
+- [#10](https://github.com/Artificer-Innovations/nanoclaw-agenttrace/pull/10) [`f54e28e`](https://github.com/Artificer-Innovations/nanoclaw-agenttrace/commit/f54e28e9d6c9f0802d4aba13b09bfb19a0f3a579) Thanks [@ZappoMan](https://github.com/ZappoMan)! - Require nanoclaw-hosthooks API v1 and register agenttrace container environment,
+  Claude observation/query options, and inbound batch handling through its
+  registries instead of patching NanoClaw business files directly.
+
 ## 0.2.0
 
 ### Minor Changes
