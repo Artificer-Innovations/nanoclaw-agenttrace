@@ -29,11 +29,17 @@ If the CLI is unavailable, reverse by hand:
 
 2. Delete runner directory: `container/agent-runner/src/agenttrace/`
 
-3. Remove from `src/index.ts` the block:
+3. Remove from `src/index.ts` the marked boot block (begin → end, inclusive):
    ```ts
+   // @nanoclaw-agenttrace:index-boot:begin
+   // ... rationale comments ...
    const { startAgentTrace } = await import('./agenttrace-boot.js');
    await startAgentTrace();
+   // @nanoclaw-agenttrace:index-boot:end
    ```
+   Also delete any leftover unmarked `startAgentTrace` import/await pair and any
+   orphan “Agenttrace must register its container-env…” comment block from
+   pre-marker installs.
 
 4. Remove from `container/agent-runner/src/index.ts`:
    ```ts

@@ -15,6 +15,7 @@ const PRESERVE_KINDS: Set<AgentActivityKind> = new Set([
   'error',
   'compaction',
   'keepalive',
+  'runtime_status',
 ]);
 
 export class TurnEventCap {

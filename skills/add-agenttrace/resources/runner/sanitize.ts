@@ -26,6 +26,7 @@ const BLOCKED_KINDS_BY_VISIBILITY: Record<ActivityVisibility, Set<AgentActivityK
     'error',
     'compaction',
     'keepalive',
+    'runtime_status',
   ]),
   status: new Set(['reasoning_summary', 'partial_text']),
   trace: new Set(),
