@@ -56,7 +56,7 @@ When agenttrace is enabled, host code (agenthosts wake bookends, runtime drivers
 publishRuntimeActivity(session, {
   phase: "starting", // RuntimeActivityPhase
   summary: "Starting machine…",
-  state: "started" | "progress" | "succeeded" | "failed",
+  state: "progress", // optional: "started" | "progress" | "succeeded" | "failed"
 });
 ```
 

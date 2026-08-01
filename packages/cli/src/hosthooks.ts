@@ -11,6 +11,8 @@ const INSTALL_GUIDANCE =
 interface HosthooksRequirement {
   path: string;
   tokens: string[];
+  /** When true, skip the requirement if the provider file is absent. */
+  optional?: boolean;
 }
 
 const REQUIREMENTS: HosthooksRequirement[] = [
@@ -53,10 +55,12 @@ const REQUIREMENTS: HosthooksRequirement[] = [
   {
     path: "container/agent-runner/src/providers/codex.ts",
     tokens: ["@nanoclaw-hosthooks:codex-query-start:begin"],
+    optional: true,
   },
   {
     path: "container/agent-runner/src/providers/opencode.ts",
     tokens: ["@nanoclaw-hosthooks:opencode-query-start:begin"],
+    optional: true,
   },
   {
     path: "container/agent-runner/src/poll-loop.ts",
@@ -73,7 +77,9 @@ export function findHosthooksIssues(nanoclawRoot: string): string[] {
   for (const requirement of REQUIREMENTS) {
     const filePath = path.join(nanoclawRoot, requirement.path);
     if (!fs.existsSync(filePath)) {
-      issues.push(`missing hosthooks file ${requirement.path}`);
+      if (!requirement.optional) {
+        issues.push(`missing hosthooks file ${requirement.path}`);
+      }
       continue;
     }
     const source = fs.readFileSync(filePath, "utf8");

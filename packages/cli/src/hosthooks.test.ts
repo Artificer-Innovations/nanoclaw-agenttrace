@@ -123,8 +123,11 @@ describe("agenttrace runner registration boot", () => {
     );
 
     expect(removeAgentTraceRunnerBootBlock(root)).toBe(true);
-    expect(fs.readFileSync(indexPath, "utf8")).not.toContain(
-      AGENTTRACE_RUNNER_BOOT_BLOCK
+    const afterRemove = fs.readFileSync(indexPath, "utf8");
+    expect(afterRemove).not.toContain(AGENTTRACE_RUNNER_BOOT_BLOCK);
+    expect(afterRemove).toContain(
+      "import { runPollLoop } from './poll-loop.js';"
     );
+    expect(removeAgentTraceRunnerBootBlock(root)).toBe(false);
   });
 });
