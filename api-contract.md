@@ -46,6 +46,21 @@ Claude SDK → container observe → messages_out (kind=system, action=agenttrac
 | `task_progress` | Subagent / task updates |
 | `retry` / `error` / `compaction` | Provider lifecycle |
 | `keepalive` | Silence-timer synthetic status (#1440) |
+| `runtime_status` | Host/runtime lifecycle (wake, start, stop, provision) — emitted on the host via `publishRuntimeActivity`, not from the guest observer |
+
+### Host runtime activity
+
+When agenttrace is enabled, host code (agenthosts wake bookends, runtime drivers) may call:
+
+```ts
+publishRuntimeActivity(session, {
+  phase: 'starting',           // RuntimeActivityPhase
+  summary: 'Starting machine…',
+  state?: 'started' | 'progress' | 'succeeded' | 'failed',
+})
+```
+
+Events use `kind: 'runtime_status'`, default `turnId` / `replaceKey` of `runtime:${sessionId}`, and the same channel dispatch ladder as other activity. Allowed under visibility `status` and above.
 
 ## Channel duck-typing
 
@@ -90,7 +105,7 @@ When webchat implements `publishActivity`:
 
 | Value | Behavior |
 |-------|----------|
-| `status` | Tools / tasks / keepalives only |
+| `status` | Tools / tasks / keepalives / runtime status only |
 | `trace` (default) | + partial text + summarized reasoning |
 | `trace_reasoning` | Same as `trace` (compat alias; no raw mode) |
 | `trace_full` | + tool inputs/results + subagent transcripts; higher per-turn event cap (500) |

@@ -43,7 +43,7 @@ Skip to **Enable** if all of these are already in place:
 
 - `src/agenttrace-boot.ts` exists
 - `container/agent-runner/src/agenttrace/observe.ts` exists
-- `src/index.ts` contains `await startAgentTrace()`
+- `src/index.ts` contains the marked `@nanoclaw-agenttrace:index-boot` block with `await startAgentTrace()` **before** `startActiveDeliveryPoll()`
 - `src/hosthooks.ts` and `container/agent-runner/src/hosthooks.ts` expose API v1
 - `nanoclaw-agenttrace` is listed in `package.json`
 
@@ -77,7 +77,9 @@ This will:
 
 1. Copy host adapter sources into `src/agenttrace-*.ts`
 2. Copy runner modules into `container/agent-runner/src/agenttrace/`
-3. Insert the host `startAgentTrace()` boot block and runner registration import
+3. Insert the marked host `startAgentTrace()` boot block (before delivery polls /
+   peer boots) and the runner registration import; upgrade scavenges pre-marker
+   late boots and orphan rationale comments
 4. Register Claude observation, partial/summarized-thinking options, inbound
    turn boundaries, and container environment forwarding through hosthooks
 5. Scaffold `.env` keys (`AGENTTRACE_ENABLED=false` by default)

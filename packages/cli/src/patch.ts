@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   AGENTTRACE_BOOT_BLOCK,
+  AGENTTRACE_MARKER,
   AGENTTRACE_RUNNER_BOOT_BLOCK,
   HOST_COPY_RULES,
   HOST_OPTIONAL_COPY_RULES,
@@ -18,10 +19,56 @@ export const SCAFFOLDED_ENV_KEYS = [
   'AGENTTRACE_SILENCE_KEEPALIVE',
 ] as const;
 
-const BOOT_BLOCK_PATTERN =
-  /^[ \t]*const \{ startAgentTrace \} = await import\('\.\/agenttrace-boot\.js'\);\r?\n^[ \t]*await startAgentTrace\(\);\r?\n(?:\r?\n)?/m;
+const BOOT_BEGIN = `// ${AGENTTRACE_MARKER}:index-boot:begin`;
+const BOOT_END = `// ${AGENTTRACE_MARKER}:index-boot:end`;
 
+/** Pre-marker two-line boot (0.1–0.3 installs). */
+const UNMARKED_BOOT_PATTERN =
+  /^[ \t]*const \{ startAgentTrace \} = await import\('\.\/agenttrace-boot\.js'\);\r?\n^[ \t]*await startAgentTrace\(\);\r?\n(?:\r?\n)?/gm;
+
+/**
+ * Orphan rationale left when unmarked uninstall removed only the two boot
+ * lines. Anchored end-to-end so we do not eat stock NanoClaw comments such as
+ * `// 5. Start delivery polls`.
+ */
+const ORPHAN_RATIONALE_PATTERN =
+  /^[ \t]*\/\/ Agenttrace must register its container-env contributor BEFORE the first\r?\n(?:^[ \t]*\/\/[^\n]*\r?\n)*?[ \t]*\/\/[^\n]*tool\/thinking traces[^\n]*\r?\n/gm;
+
+const MARKED_BOOT_PATTERN = new RegExp(
+  `\\r?\\n?[ \\t]*${escapeRegExp(BOOT_BEGIN)}\\r?\\n[\\s\\S]*?[ \\t]*${escapeRegExp(BOOT_END)}\\r?\\n?`,
+);
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export function hasAgentTraceBootBlock(content: string): boolean {
+  return content.includes(BOOT_BEGIN) && content.includes('startAgentTrace');
+}
+
+/**
+ * Preferred insert: before delivery polls / peer boots so container-env is
+ * registered before any wake. Fallbacks keep older NanoClaw layouts working.
+ */
 export function findAgentTraceBootInsertIndex(content: string): number {
+  const beforeSessionio = content.match(
+    /^[ \t]*\/\/ @nanoclaw-sessionio:index-boot:begin\r?\n/m,
+  );
+  if (beforeSessionio?.index != null) return beforeSessionio.index;
+
+  const beforeFly = content.match(
+    /^[ \t]*\/\/ @nanoclaw-agenthost-flyio:boot:begin\r?\n/m,
+  );
+  if (beforeFly?.index != null) return beforeFly.index;
+
+  const beforeProcess = content.match(
+    /^[ \t]*\/\/ @nanoclaw-agenthost-process:boot:begin\r?\n/m,
+  );
+  if (beforeProcess?.index != null) return beforeProcess.index;
+
+  const beforeDelivery = content.match(/^[ \t]*startActiveDeliveryPoll\(\);\r?\n/m);
+  if (beforeDelivery?.index != null) return beforeDelivery.index;
+
   const afterAdmin = content.match(/^[ \t]*await startAdminApi\(\);\r?\n/m);
   if (afterAdmin?.index != null) return afterAdmin.index + afterAdmin[0].length;
 
@@ -37,8 +84,28 @@ export function findAgentTraceBootInsertIndex(content: string): number {
   return -1;
 }
 
-export function hasAgentTraceBootBlock(content: string): boolean {
-  return BOOT_BLOCK_PATTERN.test(content);
+/** Strip pre-marker boots + orphan comments left by incomplete uninstalls. */
+export function scavengeLegacyAgentTraceBoot(content: string): string {
+  let next = content.replace(UNMARKED_BOOT_PATTERN, '');
+  next = next.replace(ORPHAN_RATIONALE_PATTERN, '');
+  return next.replace(/\n{3,}/g, '\n\n');
+}
+
+export function insertAgentTraceBootBlockContent(content: string): string {
+  if (hasAgentTraceBootBlock(content)) return content;
+  let next = scavengeLegacyAgentTraceBoot(content);
+  if (hasAgentTraceBootBlock(next)) return next;
+  const idx = findAgentTraceBootInsertIndex(next);
+  if (idx < 0) {
+    throw new Error('Could not find boot insert point in src/index.ts');
+  }
+  return `${next.slice(0, idx)}${AGENTTRACE_BOOT_BLOCK}\n${next.slice(idx)}`;
+}
+
+export function removeAgentTraceBootBlockContent(content: string): string {
+  let next = content.replace(MARKED_BOOT_PATTERN, '\n');
+  next = scavengeLegacyAgentTraceBoot(next);
+  return next.replace(/\n{3,}/g, '\n\n');
 }
 
 export function copyHostFiles(nanoclawRoot: string, resources?: string): string[] {
@@ -90,20 +157,18 @@ export function copyRunnerFiles(nanoclawRoot: string, resources?: string): strin
 export function insertAgentTraceBootBlock(nanoclawRoot: string): boolean {
   const filePath = path.join(nanoclawRoot, 'src/index.ts');
   const content = fs.readFileSync(filePath, 'utf8');
-  if (hasAgentTraceBootBlock(content)) return false;
-  const idx = findAgentTraceBootInsertIndex(content);
-  if (idx < 0) {
-    throw new Error('Could not find boot insert point in src/index.ts');
-  }
-  fs.writeFileSync(filePath, `${content.slice(0, idx)}\n${AGENTTRACE_BOOT_BLOCK}\n${content.slice(idx)}`);
+  const next = insertAgentTraceBootBlockContent(content);
+  if (next === content) return false;
+  fs.writeFileSync(filePath, next);
   return true;
 }
 
 export function removeAgentTraceBootBlock(nanoclawRoot: string): boolean {
   const filePath = path.join(nanoclawRoot, 'src/index.ts');
   const content = fs.readFileSync(filePath, 'utf8');
-  if (!hasAgentTraceBootBlock(content)) return false;
-  fs.writeFileSync(filePath, content.replace(BOOT_BLOCK_PATTERN, ''));
+  const next = removeAgentTraceBootBlockContent(content);
+  if (next === content) return false;
+  fs.writeFileSync(filePath, next);
   return true;
 }
 

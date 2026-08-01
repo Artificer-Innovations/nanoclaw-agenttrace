@@ -93,6 +93,7 @@ export const HOST_COPY_RULES: CopyRule[] = [
   { source: 'agenttrace-dispatch.ts', dest: 'src/agenttrace-dispatch.ts' },
   { source: 'agenttrace-delivery.ts', dest: 'src/agenttrace-delivery.ts' },
   { source: 'agenttrace-silence.ts', dest: 'src/agenttrace-silence.ts' },
+  { source: 'agenttrace-lifecycle.ts', dest: 'src/agenttrace-lifecycle.ts' },
   { source: 'agenttrace-boot.ts', dest: 'src/agenttrace-boot.ts' },
   { source: 'agenttrace-env.ts', dest: 'src/agenttrace-env.ts' },
 ];
@@ -102,6 +103,7 @@ export const HOST_OPTIONAL_COPY_RULES: CopyRule[] = [
   { source: 'agenttrace-wiring.test.ts', dest: 'src/agenttrace-wiring.test.ts' },
   { source: 'agenttrace-dispatch.test.ts', dest: 'src/agenttrace-dispatch.test.ts' },
   { source: 'agenttrace-env.test.ts', dest: 'src/agenttrace-env.test.ts' },
+  { source: 'agenttrace-lifecycle.test.ts', dest: 'src/agenttrace-lifecycle.test.ts' },
 ];
 
 export const RUNNER_COPY_RULES: CopyRule[] = [
@@ -118,8 +120,22 @@ export const RUNNER_OPTIONAL_COPY_RULES: CopyRule[] = [
   { source: 'register.test.ts', dest: 'container/agent-runner/src/agenttrace/register.test.ts' },
 ];
 
-export const AGENTTRACE_BOOT_BLOCK = `  const { startAgentTrace } = await import('./agenttrace-boot.js');
-  await startAgentTrace();`;
+export const AGENTTRACE_MARKER = '@nanoclaw-agenttrace';
+
+/**
+ * Marked host boot block. Must run before delivery polls / host-sweep so the
+ * container-env contributor is registered before the first wake/spawn.
+ * Markers make install/uninstall fully idempotent (comments included).
+ */
+export const AGENTTRACE_BOOT_BLOCK = `  // @nanoclaw-agenttrace:index-boot:begin
+  // Register container-env contributor BEFORE the first wake/spawn.
+  // Host-sweep and delivery polls can wake containers for due messages
+  // immediately; if startAgentTrace runs after that, the first container
+  // boots without AGENTTRACE_ENABLED and observe stays fail-closed
+  // (host silence keepalives still fire, but no tool/thinking traces).
+  const { startAgentTrace } = await import('./agenttrace-boot.js');
+  await startAgentTrace();
+  // @nanoclaw-agenttrace:index-boot:end`;
 
 export const AGENTTRACE_RUNNER_BOOT_BLOCK =
   "import './agenttrace/register.js'; // @nanoclaw-agenttrace-runner";

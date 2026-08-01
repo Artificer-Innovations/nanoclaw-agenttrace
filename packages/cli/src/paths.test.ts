@@ -18,9 +18,12 @@ describe('paths', () => {
     expect(RUNNER_COPY_RULES.some((r) => r.source === 'sanitize.ts')).toBe(true);
   });
 
-  it('boot block imports agenttrace-boot', () => {
+  it('boot block is marked and imports agenttrace-boot', () => {
+    expect(AGENTTRACE_BOOT_BLOCK).toContain('@nanoclaw-agenttrace:index-boot:begin');
+    expect(AGENTTRACE_BOOT_BLOCK).toContain('@nanoclaw-agenttrace:index-boot:end');
     expect(AGENTTRACE_BOOT_BLOCK).toContain('agenttrace-boot.js');
     expect(AGENTTRACE_BOOT_BLOCK).toContain('startAgentTrace');
+    expect(AGENTTRACE_BOOT_BLOCK).toContain('BEFORE the first wake/spawn');
   });
 
   it('runner boot block loads hosthook registrations', () => {

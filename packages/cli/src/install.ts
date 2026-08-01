@@ -117,7 +117,9 @@ export function runVerify(root?: string): {
   if (!fs.existsSync(indexPath)) {
     issues.push('missing src/index.ts');
   } else if (!hasAgentTraceBootBlock(fs.readFileSync(indexPath, 'utf8'))) {
-    issues.push('src/index.ts missing startAgentTrace() boot block');
+    issues.push(
+      'src/index.ts missing marked startAgentTrace() boot block (@nanoclaw-agenttrace:index-boot)',
+    );
   }
 
   const runnerIndexPath = path.join(nanoclawRoot, 'container/agent-runner/src/index.ts');
