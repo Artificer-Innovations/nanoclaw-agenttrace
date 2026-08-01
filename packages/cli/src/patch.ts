@@ -36,6 +36,7 @@ const ORPHAN_RATIONALE_PATTERN =
 
 const MARKED_BOOT_PATTERN = new RegExp(
   `\\r?\\n?[ \\t]*${escapeRegExp(BOOT_BEGIN)}\\r?\\n[\\s\\S]*?[ \\t]*${escapeRegExp(BOOT_END)}\\r?\\n?`,
+  'g',
 );
 
 function escapeRegExp(value: string): string {

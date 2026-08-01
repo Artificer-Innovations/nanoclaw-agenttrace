@@ -98,6 +98,14 @@ describe('agenttrace index boot patch', () => {
     expect(removeAgentTraceBootBlockContent(removed)).toBe(removed);
   });
 
+  it('uninstall removes every marked boot block when duplicates exist', () => {
+    const duplicated = `${AGENTTRACE_BOOT_BLOCK}\n${AGENTTRACE_BOOT_BLOCK}\n  startActiveDeliveryPoll();\n`;
+    const removed = removeAgentTraceBootBlockContent(duplicated);
+    expect(removed).not.toContain('@nanoclaw-agenttrace');
+    expect(removed).not.toContain('startAgentTrace');
+    expect(removed).toContain('startActiveDeliveryPoll');
+  });
+
   it('uninstall scavenges legacy unmarked residue', () => {
     const dirty = `${LEGACY_ORPHAN}${LEGACY_UNMARKED_BOOT}\n  startActiveDeliveryPoll();\n`;
     const cleaned = removeAgentTraceBootBlockContent(dirty);

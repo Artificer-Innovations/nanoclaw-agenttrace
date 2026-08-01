@@ -36,6 +36,14 @@ export interface PublishRuntimeActivityInput {
 
 const seqBySession = new Map<string, number>();
 
+const TERMINAL_PHASES = new Set([
+  'ready',
+  'failed',
+  'crashed',
+  'blocked',
+  'stopping',
+]);
+
 function nextSeq(sessionId: string, explicit?: number): number {
   if (typeof explicit === 'number' && Number.isFinite(explicit)) {
     seqBySession.set(sessionId, explicit);
@@ -44,6 +52,14 @@ function nextSeq(sessionId: string, explicit?: number): number {
   const n = (seqBySession.get(sessionId) ?? 0) + 1;
   seqBySession.set(sessionId, n);
   return n;
+}
+
+function isTerminalLifecycle(
+  phase: string,
+  state: RuntimeActivityState | undefined,
+): boolean {
+  if (state === 'succeeded' || state === 'failed') return true;
+  return TERMINAL_PHASES.has(phase);
 }
 
 function isEnabled(): boolean {
@@ -86,20 +102,22 @@ export async function publishRuntimeActivity(
     const replaceKey = input.replaceKey ?? `runtime:${session.id}`;
     const seq = nextSeq(session.id, input.seq);
 
+    const phase = String(input.phase);
+    // Prefer an explicit failed state over a non-terminal phase label.
+    const effectivePhase =
+      input.state === 'failed' && !TERMINAL_PHASES.has(phase) ? 'failed' : phase;
+
     const event: AgentActivityEvent = sanitizeActivityEvent({
       turnId,
       seq,
       timestamp: new Date().toISOString(),
       kind: 'runtime_status',
       summary: input.summary,
-      phase: input.phase,
+      phase: effectivePhase,
       replaceKey,
       agentName: agent?.name,
       agentFolder: agent?.folder,
     });
-
-    // state is advisory for future renderers; fold into phase when failed/ready.
-    void input.state;
 
     await dispatchActivity(
       {
@@ -110,6 +128,10 @@ export async function publishRuntimeActivity(
       },
       event,
     );
+
+    if (isTerminalLifecycle(effectivePhase, input.state)) {
+      seqBySession.delete(session.id);
+    }
   } catch (err) {
     log.warn('agenttrace runtime_status dispatch failed', {
       sessionId: session.id,

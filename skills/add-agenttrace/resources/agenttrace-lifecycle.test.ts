@@ -115,4 +115,36 @@ describe('publishRuntimeActivity', () => {
       }),
     ).resolves.toBeUndefined();
   });
+
+  it('uses failed state for phase and clears seq on terminal lifecycle', async () => {
+    process.env.AGENTTRACE_ENABLED = 'true';
+    getMessagingGroup.mockReturnValue({
+      channel_type: 'web',
+      platform_id: 'lobby',
+      instance: 'web',
+    });
+
+    await publishRuntimeActivity(session, {
+      phase: 'starting',
+      summary: 'Starting…',
+    });
+    await publishRuntimeActivity(session, {
+      phase: 'starting',
+      summary: 'Still starting…',
+      state: 'failed',
+    });
+    expect(dispatchActivity).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ phase: 'failed', seq: 2 }),
+    );
+
+    await publishRuntimeActivity(session, {
+      phase: 'preparing',
+      summary: 'Retry…',
+    });
+    expect(dispatchActivity).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ phase: 'preparing', seq: 1 }),
+    );
+  });
 });
