@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.0
 
 ### Minor Changes
 
@@ -8,7 +8,7 @@
 
 ### Patch Changes
 
-- Fix host boot install/uninstall idempotency: use `@nanoclaw-agenttrace:index-boot` markers (rationale comments included), insert **before** delivery polls / peer boots so the container-env contributor registers before the first wake, and scavenge pre-marker late `startAgentTrace` boots plus orphan “Agenttrace must register…” comments left by incomplete uninstalls. Re-run `pnpm exec nanoclaw-agenttrace install` (or upgrade) after updating the package.
+- Fix host boot install/uninstall idempotency: use `@nanoclaw-agenttrace:index-boot` markers (rationale included), insert before delivery polls / peer boots, scavenge pre-marker late boots and orphan rationale comments, require paired begin/end (repair on install, throw on unbalanced uninstall). Re-run `pnpm exec nanoclaw-agenttrace install` (or upgrade) after updating.
 
 ## 0.3.0
 
