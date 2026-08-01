@@ -372,6 +372,53 @@ export function observeClaudeSdkMessage(message: unknown): void {
           summary.slice(0, isFull(visibility) ? 2000 : 500),
           { phase: "task" }
         );
+      } else if (subtype === "hook_started") {
+        // SessionStart/Setup always emit even without includeHookEvents.
+        const event = typeof m.hook_event === "string" ? m.hook_event : "";
+        const summary =
+          event === "SessionStart"
+            ? "Running session hooks…"
+            : event === "Setup"
+              ? "Running setup hooks…"
+              : event
+                ? `Running ${event} hook…`
+                : "Running hooks…";
+        emit("task_progress", summary, { phase: "session_hooks" });
+      } else if (subtype === "status") {
+        // Post-init API wait / compact — fills sticky after Session ready…
+        if (m.status === "requesting") {
+          emit("task_progress", "Waiting for model…", {
+            phase: "awaiting_model",
+          });
+        } else if (m.status === "compacting") {
+          emit("task_progress", "Compacting context…", {
+            phase: "compacting",
+          });
+        }
+      } else if (subtype === "init") {
+        // Sticky Session ready… comes from hosthooks session_init; only surface MCP failures here.
+        const servers = Array.isArray(m.mcp_servers) ? m.mcp_servers : [];
+        const failed = servers.filter(
+          (entry): entry is { name: string; status: string } => {
+            if (!entry || typeof entry !== "object") return false;
+            const s = entry as { name?: unknown; status?: unknown };
+            return (
+              typeof s.name === "string" &&
+              typeof s.status === "string" &&
+              !/^(connected|ready|ok)$/i.test(s.status)
+            );
+          }
+        );
+        if (failed.length > 0) {
+          const names = failed
+            .map((s) => s.name)
+            .slice(0, 3)
+            .join(", ");
+          const more = failed.length > 3 ? ` (+${failed.length - 3})` : "";
+          emit("task_progress", `MCP unavailable: ${names}${more}`, {
+            phase: "mcp_issue",
+          });
+        }
       } else if (subtype === "compact_boundary") {
         emit("compaction", "Context compacted");
       } else if (subtype === "api_retry") {

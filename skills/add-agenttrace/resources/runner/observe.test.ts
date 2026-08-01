@@ -413,3 +413,79 @@ describe("provider query-start ladder", () => {
     expect(lastEvent().phase).toBe("session_ready");
   });
 });
+
+describe("Claude SDK startup system messages", () => {
+  it("emits sticky status for hook_started / status / MCP failures", async () => {
+    const {
+      observeClaudeSdkMessage,
+      prepareAgentTraceTurn,
+      refreshAgentTraceVisibility,
+    } = await import("./observe.js");
+    refreshAgentTraceVisibility();
+    prepareAgentTraceTurn("msg-startup");
+    writes.length = 0;
+
+    observeClaudeSdkMessage({
+      type: "system",
+      subtype: "hook_started",
+      hook_event: "SessionStart",
+      hook_name: "memory",
+      hook_id: "h1",
+    });
+    expect(lastEvent().summary).toBe("Running session hooks…");
+    expect(lastEvent().phase).toBe("session_hooks");
+
+    observeClaudeSdkMessage({
+      type: "system",
+      subtype: "hook_started",
+      hook_event: "Setup",
+      hook_name: "setup",
+      hook_id: "h2",
+    });
+    expect(lastEvent().summary).toBe("Running setup hooks…");
+
+    observeClaudeSdkMessage({
+      type: "system",
+      subtype: "status",
+      status: "requesting",
+    });
+    expect(lastEvent().summary).toBe("Waiting for model…");
+    expect(lastEvent().phase).toBe("awaiting_model");
+
+    observeClaudeSdkMessage({
+      type: "system",
+      subtype: "status",
+      status: "compacting",
+    });
+    expect(lastEvent().summary).toBe("Compacting context…");
+    expect(lastEvent().phase).toBe("compacting");
+
+    writes.length = 0;
+    observeClaudeSdkMessage({
+      type: "system",
+      subtype: "init",
+      mcp_servers: [
+        { name: "SigNoz", status: "failed" },
+        { name: "ok-server", status: "connected" },
+      ],
+    });
+    expect(lastEvent().summary).toBe("MCP unavailable: SigNoz");
+    expect(lastEvent().phase).toBe("mcp_issue");
+
+    writes.length = 0;
+    observeClaudeSdkMessage({
+      type: "system",
+      subtype: "init",
+      mcp_servers: [{ name: "ok-server", status: "connected" }],
+    });
+    expect(writes.length).toBe(0);
+
+    writes.length = 0;
+    observeClaudeSdkMessage({
+      type: "system",
+      subtype: "status",
+      status: null,
+    });
+    expect(writes.length).toBe(0);
+  });
+});

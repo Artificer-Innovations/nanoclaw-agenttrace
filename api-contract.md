@@ -112,6 +112,15 @@ Requires `nanoclaw-hosthooks@^0.2.0` (`features.providerQueryStart`).
 | `sdk_query`       | Harness boot (Claude / Codex / OpenCode) | `task_progress` → Starting… or Restoring conversation… |
 | `session_init`    | ProviderEvent `{ type: 'init' }`         | `task_progress` → Session ready…                       |
 
+Claude-only (via `observeClaudeSdkMessage` on SDK system messages already flowing through hosthooks):
+
+| SDK system subtype | Sticky copy |
+| ------------------ | ----------- |
+| `hook_started` (SessionStart / Setup / other) | Running session hooks… / Running setup hooks… / Running \<event\> hook… |
+| `status: requesting` | Waiting for model… |
+| `status: compacting` | Compacting context… |
+| `init` with failed `mcp_servers` | MCP unavailable: … (Session ready… still comes from `session_init`) |
+
 ### Visibility notes
 
 | Value             | Behavior                                                                      |

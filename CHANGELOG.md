@@ -6,6 +6,7 @@
 
 - Delay `turn_start` (“Working…”) until the hosthooks `provider_query` stage so inbound claim no longer freezes the UI during harness boot.
 - Emit sticky harness status on `sdk_query` (Claude / Codex / OpenCode start or restore) and `Session ready…` on provider-neutral `session_init`.
+- Surface Claude SDK startup system messages already on the observer path: `hook_started` (session/setup hooks), `status: requesting|compacting` (waiting for model), and failed `mcp_servers` on `init`.
 - Lower silence keepalive thresholds to `[10s, 20s, 30s, 90s, 180s]`.
 - Require `nanoclaw-hosthooks@^0.2.0` (`features.providerQueryStart` + new call-site markers).
 
