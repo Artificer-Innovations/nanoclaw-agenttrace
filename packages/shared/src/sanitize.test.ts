@@ -109,4 +109,20 @@ describe('formatStatusLine', () => {
       formatStatusLine(ev({ kind: 'keepalive', summary: 'Bash', keepalive: true })),
     ).toBe('Still running — Bash');
   });
+
+  it('formats runtime_status', () => {
+    expect(
+      formatStatusLine(
+        ev({ kind: 'runtime_status', summary: 'Starting machine…', phase: 'starting' }),
+      ),
+    ).toBe('Starting machine…');
+  });
+
+  it('allows runtime_status under status visibility', () => {
+    const out = sanitizeActivityEvent(
+      ev({ kind: 'runtime_status', summary: 'Starting agent…', phase: 'preparing' }),
+      'status',
+    );
+    expect(out?.kind).toBe('runtime_status');
+  });
 });

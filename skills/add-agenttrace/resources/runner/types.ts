@@ -12,7 +12,26 @@ export type AgentActivityKind =
   | 'retry'
   | 'error'
   | 'compaction'
-  | 'keepalive';
+  | 'keepalive'
+  | 'runtime_status';
+
+/** Host/runtime lifecycle phases for `runtime_status` (vendor-neutral). */
+export type RuntimeActivityPhase =
+  | 'preparing'
+  | 'waiting_transport'
+  | 'configuring'
+  | 'building_image'
+  | 'pulling_image'
+  | 'provisioning_storage'
+  | 'allocating'
+  | 'updating_config'
+  | 'starting'
+  | 'ready'
+  | 'stopping'
+  | 'restarting'
+  | 'blocked'
+  | 'crashed'
+  | 'failed';
 
 export interface AgentActivityEvent {
   turnId: string;

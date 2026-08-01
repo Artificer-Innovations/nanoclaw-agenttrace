@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.0
+
+### Minor Changes
+
+- Add `runtime_status` activity kind and host `publishRuntimeActivity()` for harness/runtime lifecycle status (wake, start, stop, provision) before a guest turn exists.
+
+### Patch Changes
+
+- Fix host boot install/uninstall idempotency: use `@nanoclaw-agenttrace:index-boot` markers (rationale included), insert before delivery polls / peer boots, scavenge pre-marker late boots and orphan rationale comments, require paired begin/end (repair on install, throw on unbalanced uninstall). Re-run `pnpm exec nanoclaw-agenttrace install` (or upgrade) after updating.
+
 ## 0.3.0
 
 ### Minor Changes

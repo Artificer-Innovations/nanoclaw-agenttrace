@@ -20,8 +20,9 @@ const BLOCKED_KINDS_BY_VISIBILITY: Record<ActivityVisibility, Set<AgentActivityK
     'error',
     'compaction',
     'keepalive',
+    'runtime_status',
   ]),
-  // Tools / tasks / keepalives only — no reasoning or partial assistant text.
+  // Tools / tasks / keepalives / runtime status only — no reasoning or partial assistant text.
   status: new Set(['reasoning_summary', 'partial_text']),
   // Default: tools + partial text + Anthropic summarized reasoning.
   trace: new Set(),
@@ -76,6 +77,8 @@ export function formatStatusLine(event: AgentActivityEvent): string {
       return event.tool ? `Finished ${event.tool}` : event.summary;
     case 'task_progress':
       return event.summary;
+    case 'runtime_status':
+      return event.summary || 'Working…';
     case 'reasoning_summary':
       return event.summary;
     case 'partial_text':
