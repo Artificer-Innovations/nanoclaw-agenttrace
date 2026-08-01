@@ -1,26 +1,26 @@
 /**
  * Bun test — copied to container/agent-runner/src/agenttrace/observe.test.ts
  */
-import { describe, expect, it, mock, beforeEach, afterEach } from 'bun:test';
+import { describe, expect, it, mock, beforeEach, afterEach } from "bun:test";
 
 const writes: unknown[] = [];
 
-mock.module('../db/messages-out.js', () => ({
+mock.module("../db/messages-out.js", () => ({
   writeMessageOut: (msg: unknown) => {
     writes.push(msg);
     return 1;
   },
 }));
 
-mock.module('../db/session-routing.js', () => ({
+mock.module("../db/session-routing.js", () => ({
   getSessionRouting: () => ({
-    channel_type: 'web',
-    platform_id: 'lobby',
-    thread_id: 'main',
+    channel_type: "web",
+    platform_id: "lobby",
+    thread_id: "main",
   }),
 }));
 
-mock.module('../db/connection.js', () => ({
+mock.module("../db/connection.js", () => ({
   getOutboundDb: () => ({
     prepare: () => ({
       all: () => [],
@@ -31,301 +31,385 @@ mock.module('../db/connection.js', () => ({
 
 beforeEach(() => {
   writes.length = 0;
-  process.env.AGENTTRACE_ENABLED = 'true';
-  process.env.AGENTTRACE_VISIBILITY = 'trace';
+  process.env.AGENTTRACE_ENABLED = "true";
+  process.env.AGENTTRACE_VISIBILITY = "trace";
 });
 
 afterEach(() => {
   delete process.env.AGENTTRACE_VISIBILITY;
 });
 
-function lastEvent(): { kind: string; summary: string; tool?: string; phase?: string } {
+function lastEvent(): {
+  kind: string;
+  summary: string;
+  tool?: string;
+  phase?: string;
+} {
   expect(writes.length).toBeGreaterThan(0);
-  const content = JSON.parse((writes[writes.length - 1] as { content: string }).content);
+  const content = JSON.parse(
+    (writes[writes.length - 1] as { content: string }).content
+  );
   return content.event;
 }
 
-describe('observeClaudeSdkMessage', () => {
-  it('emits tool_start for assistant tool_use blocks', async () => {
-    const { observeClaudeSdkMessage, beginAgentTraceTurn, refreshAgentTraceVisibility } = await import('./observe.js');
+describe("observeClaudeSdkMessage", () => {
+  it("emits tool_start for assistant tool_use blocks", async () => {
+    const {
+      observeClaudeSdkMessage,
+      beginAgentTraceTurn,
+      refreshAgentTraceVisibility,
+    } = await import("./observe.js");
     refreshAgentTraceVisibility();
-    beginAgentTraceTurn('msg-1');
+    beginAgentTraceTurn("msg-1");
     writes.length = 0;
 
     observeClaudeSdkMessage({
-      type: 'assistant',
+      type: "assistant",
       message: {
-        content: [{ type: 'tool_use', name: 'Bash', id: 't1' }],
+        content: [{ type: "tool_use", name: "Bash", id: "t1" }],
       },
     });
 
     expect(writes.length).toBeGreaterThan(0);
     const content = JSON.parse((writes[0] as { content: string }).content);
-    expect(content.action).toBe('agenttrace_activity');
-    expect(content.event.kind).toBe('tool_start');
-    expect(content.event.tool).toBe('Bash');
-    expect(content.event.summary).toBe('Running Bash');
+    expect(content.action).toBe("agenttrace_activity");
+    expect(content.event.kind).toBe("tool_start");
+    expect(content.event.tool).toBe("Bash");
+    expect(content.event.summary).toBe("Running Bash");
   });
 
-  it('emits reasoning_summary for completed thinking blocks under trace', async () => {
-    const { observeClaudeSdkMessage, beginAgentTraceTurn, refreshAgentTraceVisibility } = await import('./observe.js');
+  it("emits reasoning_summary for completed thinking blocks under trace", async () => {
+    const {
+      observeClaudeSdkMessage,
+      beginAgentTraceTurn,
+      refreshAgentTraceVisibility,
+    } = await import("./observe.js");
     refreshAgentTraceVisibility();
-    beginAgentTraceTurn('msg-2');
+    beginAgentTraceTurn("msg-2");
     writes.length = 0;
 
     observeClaudeSdkMessage({
-      type: 'assistant',
+      type: "assistant",
       message: {
-        content: [{ type: 'thinking', thinking: 'I should read the file first' }],
+        content: [
+          { type: "thinking", thinking: "I should read the file first" },
+        ],
       },
     });
 
     expect(writes).toHaveLength(1);
     const ev = lastEvent();
-    expect(ev.kind).toBe('reasoning_summary');
-    expect(ev.summary).toBe('I should read the file first');
-    expect(ev.phase).toBe('thinking');
+    expect(ev.kind).toBe("reasoning_summary");
+    expect(ev.summary).toBe("I should read the file first");
+    expect(ev.phase).toBe("thinking");
   });
 
-  it('does not emit reasoning under status visibility', async () => {
-    process.env.AGENTTRACE_VISIBILITY = 'status';
-    const { observeClaudeSdkMessage, beginAgentTraceTurn, refreshAgentTraceVisibility } = await import('./observe.js');
+  it("does not emit reasoning under status visibility", async () => {
+    process.env.AGENTTRACE_VISIBILITY = "status";
+    const {
+      observeClaudeSdkMessage,
+      beginAgentTraceTurn,
+      refreshAgentTraceVisibility,
+    } = await import("./observe.js");
     refreshAgentTraceVisibility();
-    beginAgentTraceTurn('msg-status');
+    beginAgentTraceTurn("msg-status");
     writes.length = 0;
 
     observeClaudeSdkMessage({
-      type: 'assistant',
+      type: "assistant",
       message: {
-        content: [{ type: 'thinking', thinking: 'hidden plan' }],
+        content: [{ type: "thinking", thinking: "hidden plan" }],
       },
     });
 
     expect(writes).toHaveLength(0);
   });
 
-  it('never forwards redacted_thinking blocks', async () => {
-    const { observeClaudeSdkMessage, beginAgentTraceTurn, refreshAgentTraceVisibility } = await import('./observe.js');
+  it("never forwards redacted_thinking blocks", async () => {
+    const {
+      observeClaudeSdkMessage,
+      beginAgentTraceTurn,
+      refreshAgentTraceVisibility,
+    } = await import("./observe.js");
     refreshAgentTraceVisibility();
-    beginAgentTraceTurn('msg-redacted');
+    beginAgentTraceTurn("msg-redacted");
     writes.length = 0;
 
     observeClaudeSdkMessage({
-      type: 'assistant',
+      type: "assistant",
       message: {
-        content: [{ type: 'redacted_thinking', data: 'opaque-blob' }],
+        content: [{ type: "redacted_thinking", data: "opaque-blob" }],
       },
     });
 
     expect(writes).toHaveLength(0);
   });
 
-  it('coalesces thinking_delta and flushes on content_block_stop', async () => {
-    const { observeClaudeSdkMessage, beginAgentTraceTurn, refreshAgentTraceVisibility } = await import('./observe.js');
+  it("coalesces thinking_delta and flushes on content_block_stop", async () => {
+    const {
+      observeClaudeSdkMessage,
+      beginAgentTraceTurn,
+      refreshAgentTraceVisibility,
+    } = await import("./observe.js");
     refreshAgentTraceVisibility();
-    beginAgentTraceTurn('msg-delta');
+    beginAgentTraceTurn("msg-delta");
     writes.length = 0;
 
     observeClaudeSdkMessage({
-      type: 'stream_event',
-      event: { type: 'content_block_start', content_block: { type: 'thinking' } },
+      type: "stream_event",
+      event: {
+        type: "content_block_start",
+        content_block: { type: "thinking" },
+      },
     });
     observeClaudeSdkMessage({
-      type: 'stream_event',
-      event: { type: 'content_block_delta', delta: { type: 'thinking_delta', thinking: 'Step one. ' } },
+      type: "stream_event",
+      event: {
+        type: "content_block_delta",
+        delta: { type: "thinking_delta", thinking: "Step one. " },
+      },
     });
     observeClaudeSdkMessage({
-      type: 'stream_event',
-      event: { type: 'content_block_delta', delta: { type: 'thinking_delta', thinking: 'Step two.' } },
+      type: "stream_event",
+      event: {
+        type: "content_block_delta",
+        delta: { type: "thinking_delta", thinking: "Step two." },
+      },
     });
     // Not flushed yet (timer pending)
     expect(writes).toHaveLength(0);
 
     observeClaudeSdkMessage({
-      type: 'stream_event',
-      event: { type: 'content_block_stop' },
+      type: "stream_event",
+      event: { type: "content_block_stop" },
     });
 
     expect(writes).toHaveLength(1);
-    expect(lastEvent().kind).toBe('reasoning_summary');
-    expect(lastEvent().summary).toBe('Step one. Step two.');
+    expect(lastEvent().kind).toBe("reasoning_summary");
+    expect(lastEvent().summary).toBe("Step one. Step two.");
   });
 
-  it('flushes early when the thinking buffer hits the hard cap', async () => {
-    const { observeClaudeSdkMessage, beginAgentTraceTurn, refreshAgentTraceVisibility } = await import('./observe.js');
+  it("flushes early when the thinking buffer hits the hard cap", async () => {
+    const {
+      observeClaudeSdkMessage,
+      beginAgentTraceTurn,
+      refreshAgentTraceVisibility,
+    } = await import("./observe.js");
     refreshAgentTraceVisibility();
-    beginAgentTraceTurn('msg-cap');
+    beginAgentTraceTurn("msg-cap");
     writes.length = 0;
 
     observeClaudeSdkMessage({
-      type: 'stream_event',
-      event: { type: 'content_block_start', content_block: { type: 'thinking' } },
+      type: "stream_event",
+      event: {
+        type: "content_block_start",
+        content_block: { type: "thinking" },
+      },
     });
     observeClaudeSdkMessage({
-      type: 'stream_event',
+      type: "stream_event",
       event: {
-        type: 'content_block_delta',
-        delta: { type: 'thinking_delta', thinking: 'x'.repeat(16_000) },
+        type: "content_block_delta",
+        delta: { type: "thinking_delta", thinking: "x".repeat(16_000) },
       },
     });
 
     expect(writes.length).toBeGreaterThanOrEqual(1);
-    expect(lastEvent().kind).toBe('reasoning_summary');
+    expect(lastEvent().kind).toBe("reasoning_summary");
     expect(lastEvent().summary.length).toBeLessThanOrEqual(2000);
   });
 
-  it('includes tool input under trace_full', async () => {
-    process.env.AGENTTRACE_VISIBILITY = 'trace_full';
-    const { observeClaudeSdkMessage, beginAgentTraceTurn, refreshAgentTraceVisibility } = await import('./observe.js');
+  it("includes tool input under trace_full", async () => {
+    process.env.AGENTTRACE_VISIBILITY = "trace_full";
+    const {
+      observeClaudeSdkMessage,
+      beginAgentTraceTurn,
+      refreshAgentTraceVisibility,
+    } = await import("./observe.js");
     refreshAgentTraceVisibility();
-    beginAgentTraceTurn('msg-full');
+    beginAgentTraceTurn("msg-full");
     writes.length = 0;
 
     observeClaudeSdkMessage({
-      type: 'assistant',
+      type: "assistant",
       message: {
-        content: [{ type: 'tool_use', name: 'Bash', id: 't1', input: { command: 'ls -la' } }],
+        content: [
+          {
+            type: "tool_use",
+            name: "Bash",
+            id: "t1",
+            input: { command: "ls -la" },
+          },
+        ],
       },
     });
 
-    expect(lastEvent().kind).toBe('tool_start');
-    expect(lastEvent().summary).toBe('Bash: ls -la');
+    expect(lastEvent().kind).toBe("tool_start");
+    expect(lastEvent().summary).toBe("Bash: ls -la");
   });
 
-  it('emits tool_end with result snippet under trace_full', async () => {
-    process.env.AGENTTRACE_VISIBILITY = 'trace_full';
-    const { observeClaudeSdkMessage, beginAgentTraceTurn, refreshAgentTraceVisibility } = await import('./observe.js');
+  it("emits tool_end with result snippet under trace_full", async () => {
+    process.env.AGENTTRACE_VISIBILITY = "trace_full";
+    const {
+      observeClaudeSdkMessage,
+      beginAgentTraceTurn,
+      refreshAgentTraceVisibility,
+    } = await import("./observe.js");
     refreshAgentTraceVisibility();
-    beginAgentTraceTurn('msg-result');
+    beginAgentTraceTurn("msg-result");
     writes.length = 0;
 
     observeClaudeSdkMessage({
-      type: 'assistant',
+      type: "assistant",
       message: {
-        content: [{ type: 'tool_use', name: 'Bash', id: 't1', input: { command: 'ls' } }],
+        content: [
+          {
+            type: "tool_use",
+            name: "Bash",
+            id: "t1",
+            input: { command: "ls" },
+          },
+        ],
       },
     });
     observeClaudeSdkMessage({
-      type: 'user',
+      type: "user",
       message: {
-        content: [{ type: 'tool_result', tool_use_id: 't1', content: 'file1.txt\nfile2.txt' }],
+        content: [
+          {
+            type: "tool_result",
+            tool_use_id: "t1",
+            content: "file1.txt\nfile2.txt",
+          },
+        ],
       },
     });
 
-    expect(lastEvent().kind).toBe('tool_end');
-    expect(lastEvent().tool).toBe('Bash');
-    expect(lastEvent().summary).toContain('Finished:');
-    expect(lastEvent().summary).toContain('file1.txt');
+    expect(lastEvent().kind).toBe("tool_end");
+    expect(lastEvent().tool).toBe("Bash");
+    expect(lastEvent().summary).toContain("Finished:");
+    expect(lastEvent().summary).toContain("file1.txt");
   });
 
-  it('emits subagent text as task_progress under trace_full', async () => {
-    process.env.AGENTTRACE_VISIBILITY = 'trace_full';
-    const { observeClaudeSdkMessage, beginAgentTraceTurn, refreshAgentTraceVisibility } = await import('./observe.js');
+  it("emits subagent text as task_progress under trace_full", async () => {
+    process.env.AGENTTRACE_VISIBILITY = "trace_full";
+    const {
+      observeClaudeSdkMessage,
+      beginAgentTraceTurn,
+      refreshAgentTraceVisibility,
+    } = await import("./observe.js");
     refreshAgentTraceVisibility();
-    beginAgentTraceTurn('msg-sub');
+    beginAgentTraceTurn("msg-sub");
     writes.length = 0;
 
     observeClaudeSdkMessage({
-      type: 'assistant',
-      parent_tool_use_id: 'agent-tool-1',
+      type: "assistant",
+      parent_tool_use_id: "agent-tool-1",
       message: {
-        content: [{ type: 'text', text: 'Subagent found three matches' }],
+        content: [{ type: "text", text: "Subagent found three matches" }],
       },
     });
 
-    expect(lastEvent().kind).toBe('task_progress');
-    expect(lastEvent().phase).toBe('subagent:agent-tool-1');
-    expect(lastEvent().summary).toContain('three matches');
+    expect(lastEvent().kind).toBe("task_progress");
+    expect(lastEvent().phase).toBe("subagent:agent-tool-1");
+    expect(lastEvent().summary).toContain("three matches");
   });
 
-  it('redacts secrets in tool summaries before write', async () => {
-    const { observeClaudeSdkMessage, beginAgentTraceTurn, refreshAgentTraceVisibility } = await import('./observe.js');
+  it("redacts secrets in tool summaries before write", async () => {
+    const {
+      observeClaudeSdkMessage,
+      beginAgentTraceTurn,
+      refreshAgentTraceVisibility,
+    } = await import("./observe.js");
     refreshAgentTraceVisibility();
-    beginAgentTraceTurn('msg-3');
+    beginAgentTraceTurn("msg-3");
     writes.length = 0;
 
     observeClaudeSdkMessage({
-      type: 'tool_use_summary',
-      summary: 'Using key ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefgh1234',
+      type: "tool_use_summary",
+      summary: "Using key ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefgh1234",
     });
 
     expect(writes.length).toBeGreaterThan(0);
     const content = JSON.parse((writes[0] as { content: string }).content);
-    expect(content.event.summary).toContain('[redacted]');
-    expect(content.event.summary).not.toContain('ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefgh1234');
+    expect(content.event.summary).toContain("[redacted]");
+    expect(content.event.summary).not.toContain(
+      "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefgh1234"
+    );
   });
 
-  it('agentTraceQueryOptions requests summarized thinking under trace', async () => {
-    process.env.AGENTTRACE_VISIBILITY = 'trace';
-    const { agentTraceQueryOptions, refreshAgentTraceVisibility } = await import('./observe.js');
+  it("agentTraceQueryOptions requests summarized thinking under trace", async () => {
+    process.env.AGENTTRACE_VISIBILITY = "trace";
+    const { agentTraceQueryOptions, refreshAgentTraceVisibility } =
+      await import("./observe.js");
     refreshAgentTraceVisibility();
     expect(agentTraceQueryOptions()).toEqual({
-      thinking: { type: 'adaptive', display: 'summarized' },
+      thinking: { type: "adaptive", display: "summarized" },
     });
   });
 
-  it('agentTraceQueryOptions enables forwardSubagentText under trace_full', async () => {
-    process.env.AGENTTRACE_VISIBILITY = 'trace_full';
-    const { agentTraceQueryOptions, refreshAgentTraceVisibility } = await import('./observe.js');
+  it("agentTraceQueryOptions enables forwardSubagentText under trace_full", async () => {
+    process.env.AGENTTRACE_VISIBILITY = "trace_full";
+    const { agentTraceQueryOptions, refreshAgentTraceVisibility } =
+      await import("./observe.js");
     refreshAgentTraceVisibility();
     expect(agentTraceQueryOptions()).toEqual({
-      thinking: { type: 'adaptive', display: 'summarized' },
+      thinking: { type: "adaptive", display: "summarized" },
       forwardSubagentText: true,
     });
   });
 });
 
-describe('provider query-start ladder', () => {
-  it('prepareAgentTraceTurn does not emit Working…', async () => {
-    const {
-      prepareAgentTraceTurn,
-      refreshAgentTraceVisibility,
-    } = await import('./observe.js');
+describe("provider query-start ladder", () => {
+  it("prepareAgentTraceTurn does not emit Working…", async () => {
+    const { prepareAgentTraceTurn, refreshAgentTraceVisibility } = await import(
+      "./observe.js"
+    );
     refreshAgentTraceVisibility();
     writes.length = 0;
-    prepareAgentTraceTurn('msg-prep');
+    prepareAgentTraceTurn("msg-prep");
     expect(writes.length).toBe(0);
   });
 
-  it('emits Working… / harness start / Session ready… by stage', async () => {
+  it("emits Working… / harness start / Session ready… by stage", async () => {
     const {
       agentTraceOnProviderQueryStart,
       prepareAgentTraceTurn,
       refreshAgentTraceVisibility,
-    } = await import('./observe.js');
+    } = await import("./observe.js");
     refreshAgentTraceVisibility();
-    prepareAgentTraceTurn('msg-ladder');
+    prepareAgentTraceTurn("msg-ladder");
     writes.length = 0;
 
     agentTraceOnProviderQueryStart({
-      provider: 'claude',
-      stage: 'provider_query',
+      provider: "claude",
+      stage: "provider_query",
     });
-    expect(lastEvent().kind).toBe('turn_start');
-    expect(lastEvent().summary).toBe('Working…');
+    expect(lastEvent().kind).toBe("turn_start");
+    expect(lastEvent().summary).toBe("Working…");
 
     agentTraceOnProviderQueryStart({
-      provider: 'claude',
-      stage: 'sdk_query',
+      provider: "claude",
+      stage: "sdk_query",
       hasContinuation: true,
     });
-    expect(lastEvent().kind).toBe('task_progress');
-    expect(lastEvent().summary).toBe('Restoring conversation…');
-    expect(lastEvent().phase).toBe('resuming_session');
+    expect(lastEvent().kind).toBe("task_progress");
+    expect(lastEvent().summary).toBe("Restoring conversation…");
+    expect(lastEvent().phase).toBe("resuming_session");
 
     agentTraceOnProviderQueryStart({
-      provider: 'codex',
-      stage: 'sdk_query',
+      provider: "codex",
+      stage: "sdk_query",
       hasContinuation: false,
     });
-    expect(lastEvent().summary).toBe('Starting Codex…');
-    expect(lastEvent().phase).toBe('booting_sdk');
+    expect(lastEvent().summary).toBe("Starting Codex…");
+    expect(lastEvent().phase).toBe("booting_sdk");
 
     agentTraceOnProviderQueryStart({
-      provider: 'opencode',
-      stage: 'session_init',
+      provider: "opencode",
+      stage: "session_init",
     });
-    expect(lastEvent().summary).toBe('Session ready…');
-    expect(lastEvent().phase).toBe('session_ready');
+    expect(lastEvent().summary).toBe("Session ready…");
+    expect(lastEvent().phase).toBe("session_ready");
   });
 });
