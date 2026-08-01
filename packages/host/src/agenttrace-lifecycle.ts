@@ -5,18 +5,22 @@
  * Callers (agenthosts wake bookends, Fly/Docker/process drivers) should never
  * hard-depend on this module failing: publishRuntimeActivity never throws.
  */
-import { getAgentGroup, getMessagingGroup } from './db/index.js';
-import { log } from './log.js';
-import { resolveAgentTraceConfig } from './agenttrace-config.js';
-import { dispatchActivity } from './agenttrace-dispatch.js';
-import { readEnvFile } from './env.js';
+import { getAgentGroup, getMessagingGroup } from "./db/index.js";
+import { log } from "./log.js";
+import { resolveAgentTraceConfig } from "./agenttrace-config.js";
+import { dispatchActivity } from "./agenttrace-dispatch.js";
+import { readEnvFile } from "./env.js";
 import {
   sanitizeActivityEvent,
   type AgentActivityEvent,
   type RuntimeActivityPhase,
-} from './agenttrace-shared.js';
+} from "./agenttrace-shared.js";
 
-export type RuntimeActivityState = 'started' | 'progress' | 'succeeded' | 'failed';
+export type RuntimeActivityState =
+  | "started"
+  | "progress"
+  | "succeeded"
+  | "failed";
 
 export interface RuntimeActivitySession {
   id: string;
@@ -26,6 +30,7 @@ export interface RuntimeActivitySession {
 }
 
 export interface PublishRuntimeActivityInput {
+  /** Known phases get autocomplete; `string` remains an escape hatch for drivers. */
   phase: RuntimeActivityPhase | string;
   summary: string;
   state?: RuntimeActivityState;
@@ -37,15 +42,15 @@ export interface PublishRuntimeActivityInput {
 const seqBySession = new Map<string, number>();
 
 const TERMINAL_PHASES = new Set([
-  'ready',
-  'failed',
-  'crashed',
-  'blocked',
-  'stopping',
+  "ready",
+  "failed",
+  "crashed",
+  "blocked",
+  "stopping",
 ]);
 
 function nextSeq(sessionId: string, explicit?: number): number {
-  if (typeof explicit === 'number' && Number.isFinite(explicit)) {
+  if (typeof explicit === "number" && Number.isFinite(explicit)) {
     seqBySession.set(sessionId, explicit);
     return explicit;
   }
@@ -56,23 +61,23 @@ function nextSeq(sessionId: string, explicit?: number): number {
 
 function isTerminalLifecycle(
   phase: string,
-  state: RuntimeActivityState | undefined,
+  state: RuntimeActivityState | undefined
 ): boolean {
-  if (state === 'succeeded' || state === 'failed') return true;
+  if (state === "succeeded" || state === "failed") return true;
   return TERMINAL_PHASES.has(phase);
 }
 
 function isEnabled(): boolean {
   try {
     const fileEnv = readEnvFile([
-      'AGENTTRACE_ENABLED',
-      'AGENTTRACE_DEFAULT_VISIBILITY',
-      'AGENTTRACE_SILENCE_KEEPALIVE',
+      "AGENTTRACE_ENABLED",
+      "AGENTTRACE_DEFAULT_VISIBILITY",
+      "AGENTTRACE_SILENCE_KEEPALIVE",
     ]);
     return resolveAgentTraceConfig(process.env, fileEnv).enabled;
   } catch {
-    const raw = (process.env.AGENTTRACE_ENABLED ?? '').trim().toLowerCase();
-    return raw === '1' || raw === 'true' || raw === 'yes';
+    const raw = (process.env.AGENTTRACE_ENABLED ?? "").trim().toLowerCase();
+    return raw === "1" || raw === "true" || raw === "yes";
   }
 }
 
@@ -83,7 +88,7 @@ function isEnabled(): boolean {
  */
 export async function publishRuntimeActivity(
   session: RuntimeActivitySession,
-  input: PublishRuntimeActivityInput,
+  input: PublishRuntimeActivityInput
 ): Promise<void> {
   try {
     if (!isEnabled()) return;
@@ -91,7 +96,7 @@ export async function publishRuntimeActivity(
 
     const mg = getMessagingGroup(session.messaging_group_id);
     if (!mg) {
-      log.warn('agenttrace runtime_status: could not resolve destination', {
+      log.warn("agenttrace runtime_status: could not resolve destination", {
         sessionId: session.id,
       });
       return;
@@ -105,13 +110,15 @@ export async function publishRuntimeActivity(
     const phase = String(input.phase);
     // Prefer an explicit failed state over a non-terminal phase label.
     const effectivePhase =
-      input.state === 'failed' && !TERMINAL_PHASES.has(phase) ? 'failed' : phase;
+      input.state === "failed" && !TERMINAL_PHASES.has(phase)
+        ? "failed"
+        : phase;
 
     const event: AgentActivityEvent = sanitizeActivityEvent({
       turnId,
       seq,
       timestamp: new Date().toISOString(),
-      kind: 'runtime_status',
+      kind: "runtime_status",
       summary: input.summary,
       phase: effectivePhase,
       replaceKey,
@@ -126,14 +133,14 @@ export async function publishRuntimeActivity(
         threadId: session.thread_id ?? null,
         instance: mg.instance,
       },
-      event,
+      event
     );
 
     if (isTerminalLifecycle(effectivePhase, input.state)) {
       seqBySession.delete(session.id);
     }
   } catch (err) {
-    log.warn('agenttrace runtime_status dispatch failed', {
+    log.warn("agenttrace runtime_status dispatch failed", {
       sessionId: session.id,
       phase: input.phase,
       err,
