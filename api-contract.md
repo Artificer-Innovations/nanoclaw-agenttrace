@@ -37,16 +37,16 @@ Claude SDK → container observe → messages_out (kind=system, action=agenttrac
 
 ### Event kinds
 
-| kind | Meaning |
-|------|---------|
-| `turn_start` / `turn_end` | Turn lifecycle |
-| `reasoning_summary` | Anthropic **summarized** thinking (coalesced); never raw CoT / signatures / `redacted_thinking` |
-| `partial_text` | Coalesced partial assistant text |
-| `tool_start` / `tool_progress` / `tool_end` | Tool lifecycle |
-| `task_progress` | Subagent / task updates |
-| `retry` / `error` / `compaction` | Provider lifecycle |
-| `keepalive` | Silence-timer synthetic status (#1440) |
-| `runtime_status` | Host/runtime lifecycle (wake, start, stop, provision) — emitted on the host via `publishRuntimeActivity`, not from the guest observer |
+| kind                                        | Meaning                                                                                                                               |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `turn_start` / `turn_end`                   | Turn lifecycle                                                                                                                        |
+| `reasoning_summary`                         | Anthropic **summarized** thinking (coalesced); never raw CoT / signatures / `redacted_thinking`                                       |
+| `partial_text`                              | Coalesced partial assistant text                                                                                                      |
+| `tool_start` / `tool_progress` / `tool_end` | Tool lifecycle                                                                                                                        |
+| `task_progress`                             | Subagent / task updates                                                                                                               |
+| `retry` / `error` / `compaction`            | Provider lifecycle                                                                                                                    |
+| `keepalive`                                 | Silence-timer synthetic status (#1440)                                                                                                |
+| `runtime_status`                            | Host/runtime lifecycle (wake, start, stop, provision) — emitted on the host via `publishRuntimeActivity`, not from the guest observer |
 
 ### Host runtime activity
 
@@ -54,10 +54,10 @@ When agenttrace is enabled, host code (agenthosts wake bookends, runtime drivers
 
 ```ts
 publishRuntimeActivity(session, {
-  phase: 'starting',           // RuntimeActivityPhase
-  summary: 'Starting machine…',
-  state?: 'started' | 'progress' | 'succeeded' | 'failed',
-})
+  phase: "starting", // RuntimeActivityPhase
+  summary: "Starting machine…",
+  state: "progress", // optional: "started" | "progress" | "succeeded" | "failed"
+});
 ```
 
 Events use `kind: 'runtime_status'`, default `turnId` / `replaceKey` of `runtime:${sessionId}`, and the same channel dispatch ladder as other activity. Allowed under visibility `status` and above.
@@ -94,18 +94,38 @@ When webchat implements `publishActivity`:
 
 ## Env
 
-| Key | Default | Meaning |
-|-----|---------|---------|
-| `AGENTTRACE_ENABLED` | `false` | Master switch |
-| `AGENTTRACE_DEFAULT_VISIBILITY` | `trace` | `off` \| `status` \| `trace` \| `trace_reasoning` (alias of `trace`) \| `trace_full` |
-| `AGENTTRACE_SILENCE_KEEPALIVE` | `true` | #1440 silence timers |
-| `AGENTTRACE_VISIBILITY` | (inherits) | Optional container override |
+| Key                             | Default    | Meaning                                                                              |
+| ------------------------------- | ---------- | ------------------------------------------------------------------------------------ |
+| `AGENTTRACE_ENABLED`            | `false`    | Master switch                                                                        |
+| `AGENTTRACE_DEFAULT_VISIBILITY` | `trace`    | `off` \| `status` \| `trace` \| `trace_reasoning` (alias of `trace`) \| `trace_full` |
+| `AGENTTRACE_SILENCE_KEEPALIVE`  | `true`     | #1440 silence timers at 10s / 20s / 30s / 90s / 180s                                 |
+| `AGENTTRACE_VISIBILITY`         | (inherits) | Optional container override                                                          |
+
+## Provider query-start ladder (hosthooks)
+
+Requires `nanoclaw-hosthooks@^0.2.0` (`features.providerQueryStart`).
+
+| Stage             | When                                     | Guest status                                           |
+| ----------------- | ---------------------------------------- | ------------------------------------------------------ |
+| _(inbound batch)_ | Messages claimed                         | Prepare turn id only (no Working…)                     |
+| `provider_query`  | Immediately before `provider.query`      | `turn_start` → Working…                                |
+| `sdk_query`       | Harness boot (Claude / Codex / OpenCode) | `task_progress` → Starting… or Restoring conversation… |
+| `session_init`    | ProviderEvent `{ type: 'init' }`         | `task_progress` → Session ready…                       |
+
+Claude-only (via `observeClaudeSdkMessage` on SDK system messages already flowing through hosthooks):
+
+| SDK system subtype | Sticky copy |
+| ------------------ | ----------- |
+| `hook_started` (SessionStart / Setup / other) | Running session hooks… / Running setup hooks… / Running \<event\> hook… |
+| `status: requesting` | Waiting for model… |
+| `status: compacting` | Compacting context… |
+| `init` with failed `mcp_servers` | MCP unavailable: … (Session ready… still comes from `session_init`) |
 
 ### Visibility notes
 
-| Value | Behavior |
-|-------|----------|
-| `status` | Tools / tasks / keepalives / runtime status only |
-| `trace` (default) | + partial text + summarized reasoning |
-| `trace_reasoning` | Same as `trace` (compat alias; no raw mode) |
-| `trace_full` | + tool inputs/results + subagent transcripts; higher per-turn event cap (500) |
+| Value             | Behavior                                                                      |
+| ----------------- | ----------------------------------------------------------------------------- |
+| `status`          | Tools / tasks / keepalives / runtime status only                              |
+| `trace` (default) | + partial text + summarized reasoning                                         |
+| `trace_reasoning` | Same as `trace` (compat alias; no raw mode)                                   |
+| `trace_full`      | + tool inputs/results + subagent transcripts; higher per-turn event cap (500) |
