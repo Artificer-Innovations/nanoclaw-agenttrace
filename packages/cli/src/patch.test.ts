@@ -143,6 +143,25 @@ describe("agenttrace index boot patch", () => {
     expect(repaired.match(/startAgentTrace\(\)/g)?.length).toBe(1);
   });
 
+  it("install scavenges current-header rationale left by unbalanced strip", () => {
+    const currentOrphan = `  // Register container-env contributor BEFORE the first wake/spawn.
+  // Host-sweep and delivery polls can wake containers for due messages
+  // immediately; if startAgentTrace runs after that, the first container
+  // boots without AGENTTRACE_ENABLED and observe stays fail-closed
+  // (host silence keepalives still fire, but no tool/thinking traces).
+`;
+    const incomplete = STOCK_MAIN.replace(
+      "  // 5. Start delivery polls\n",
+      `// @nanoclaw-agenttrace:index-boot:begin\n${currentOrphan}  await startAgentTrace();\n  // 5. Start delivery polls\n`
+    );
+    const repaired = insertAgentTraceBootBlockContent(incomplete);
+    expect(repaired.match(/Register container-env contributor/g)?.length).toBe(
+      1
+    );
+    expect(repaired.match(/startAgentTrace\(\)/g)?.length).toBe(1);
+    expect(repaired).toContain("@nanoclaw-agenttrace:index-boot:end");
+  });
+
   it("uninstall throws on unbalanced begin/end markers", () => {
     const unbalanced = `${BOOT_BEGIN_LINE}\n  realCode();\n${AGENTTRACE_BOOT_BLOCK}\n`;
     expect(() => removeAgentTraceBootBlockContent(unbalanced)).toThrow(

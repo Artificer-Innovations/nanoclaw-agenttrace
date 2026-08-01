@@ -28,11 +28,14 @@ const UNMARKED_BOOT_PATTERN =
 
 /**
  * Orphan rationale left when unmarked uninstall removed only the two boot
- * lines. Anchored end-to-end so we do not eat stock NanoClaw comments such as
+ * lines, or when stripBootMarkers() drops unbalanced markers but leaves the
+ * comment block. Matches both the legacy header ("Agenttrace must register…")
+ * and the current marked-block header ("Register container-env…"). Anchored
+ * end-to-end so we do not eat stock NanoClaw comments such as
  * `// 5. Start delivery polls`.
  */
 const ORPHAN_RATIONALE_PATTERN =
-  /^[ \t]*\/\/ Agenttrace must register its container-env contributor BEFORE the first\r?\n(?:^[ \t]*\/\/[^\n]*\r?\n)*?[ \t]*\/\/[^\n]*tool\/thinking traces[^\n]*\r?\n/gm;
+  /^[ \t]*\/\/ (?:Agenttrace must register its container-env contributor BEFORE the first|Register container-env contributor BEFORE the first wake\/spawn\.)\r?\n(?:^[ \t]*\/\/[^\n]*\r?\n)*?[ \t]*\/\/[^\n]*tool\/thinking traces[^\n]*\r?\n/gm;
 
 const MARKED_BOOT_PATTERN = new RegExp(
   `\\r?\\n?[ \\t]*${escapeRegExp(
