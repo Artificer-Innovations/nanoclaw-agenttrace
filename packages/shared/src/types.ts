@@ -5,40 +5,45 @@
  * Under `trace_full`, summaries may include secret-scanned tool inputs/results.
  */
 
-export type ActivityVisibility = 'off' | 'status' | 'trace' | 'trace_reasoning' | 'trace_full';
+export type ActivityVisibility =
+  | "off"
+  | "status"
+  | "trace"
+  | "trace_reasoning"
+  | "trace_full";
 
 export type AgentActivityKind =
-  | 'turn_start'
-  | 'turn_end'
-  | 'reasoning_summary'
-  | 'partial_text'
-  | 'tool_start'
-  | 'tool_progress'
-  | 'tool_end'
-  | 'task_progress'
-  | 'retry'
-  | 'error'
-  | 'compaction'
-  | 'keepalive'
-  | 'runtime_status';
+  | "turn_start"
+  | "turn_end"
+  | "reasoning_summary"
+  | "partial_text"
+  | "tool_start"
+  | "tool_progress"
+  | "tool_end"
+  | "task_progress"
+  | "retry"
+  | "error"
+  | "compaction"
+  | "keepalive"
+  | "runtime_status";
 
 /** Host/runtime lifecycle phases for `runtime_status` (vendor-neutral). */
 export type RuntimeActivityPhase =
-  | 'preparing'
-  | 'waiting_transport'
-  | 'configuring'
-  | 'building_image'
-  | 'pulling_image'
-  | 'provisioning_storage'
-  | 'allocating'
-  | 'updating_config'
-  | 'starting'
-  | 'ready'
-  | 'stopping'
-  | 'restarting'
-  | 'blocked'
-  | 'crashed'
-  | 'failed';
+  | "preparing"
+  | "waiting_transport"
+  | "configuring"
+  | "building_image"
+  | "pulling_image"
+  | "provisioning_storage"
+  | "allocating"
+  | "updating_config"
+  | "starting"
+  | "ready"
+  | "stopping"
+  | "restarting"
+  | "blocked"
+  | "crashed"
+  | "failed";
 
 export interface AgentActivityEvent {
   /** Stable turn id (usually inbound message id or generated UUID). */
@@ -64,7 +69,7 @@ export interface AgentActivityEvent {
 }
 
 /** System action name registered with NanoClaw delivery. */
-export const AGENTTRACE_ACTION = 'agenttrace_activity' as const;
+export const AGENTTRACE_ACTION = "agenttrace_activity" as const;
 
 /** Content shape written to messages_out (kind: system). */
 export interface AgentTraceSystemContent {
@@ -83,4 +88,6 @@ export const THINKING_COALESCE_MS = 400;
 /** Faster coalesce window under `trace_full`. */
 export const THINKING_COALESCE_FULL_MS = 200;
 
-export const SILENCE_KEEPALIVE_THRESHOLDS_MS = [30_000, 90_000, 180_000] as const;
+export const SILENCE_KEEPALIVE_THRESHOLDS_MS = [
+  10_000, 20_000, 30_000, 90_000, 180_000,
+] as const;

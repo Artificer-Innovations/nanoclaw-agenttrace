@@ -273,5 +273,59 @@ describe('observeClaudeSdkMessage', () => {
       forwardSubagentText: true,
     });
   });
+});
 
+describe('provider query-start ladder', () => {
+  it('prepareAgentTraceTurn does not emit Working…', async () => {
+    const {
+      prepareAgentTraceTurn,
+      refreshAgentTraceVisibility,
+    } = await import('./observe.js');
+    refreshAgentTraceVisibility();
+    writes.length = 0;
+    prepareAgentTraceTurn('msg-prep');
+    expect(writes.length).toBe(0);
+  });
+
+  it('emits Working… / harness start / Session ready… by stage', async () => {
+    const {
+      agentTraceOnProviderQueryStart,
+      prepareAgentTraceTurn,
+      refreshAgentTraceVisibility,
+    } = await import('./observe.js');
+    refreshAgentTraceVisibility();
+    prepareAgentTraceTurn('msg-ladder');
+    writes.length = 0;
+
+    agentTraceOnProviderQueryStart({
+      provider: 'claude',
+      stage: 'provider_query',
+    });
+    expect(lastEvent().kind).toBe('turn_start');
+    expect(lastEvent().summary).toBe('Working…');
+
+    agentTraceOnProviderQueryStart({
+      provider: 'claude',
+      stage: 'sdk_query',
+      hasContinuation: true,
+    });
+    expect(lastEvent().kind).toBe('task_progress');
+    expect(lastEvent().summary).toBe('Restoring conversation…');
+    expect(lastEvent().phase).toBe('resuming_session');
+
+    agentTraceOnProviderQueryStart({
+      provider: 'codex',
+      stage: 'sdk_query',
+      hasContinuation: false,
+    });
+    expect(lastEvent().summary).toBe('Starting Codex…');
+    expect(lastEvent().phase).toBe('booting_sdk');
+
+    agentTraceOnProviderQueryStart({
+      provider: 'opencode',
+      stage: 'session_init',
+    });
+    expect(lastEvent().summary).toBe('Session ready…');
+    expect(lastEvent().phase).toBe('session_ready');
+  });
 });

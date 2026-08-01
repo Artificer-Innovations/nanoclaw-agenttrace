@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0
+
+### Minor Changes
+
+- Delay `turn_start` (“Working…”) until the hosthooks `provider_query` stage so inbound claim no longer freezes the UI during harness boot.
+- Emit sticky harness status on `sdk_query` (Claude / Codex / OpenCode start or restore) and `Session ready…` on provider-neutral `session_init`.
+- Lower silence keepalive thresholds to `[10s, 20s, 30s, 90s, 180s]`.
+- Require `nanoclaw-hosthooks@^0.2.0` (`features.providerQueryStart` + new call-site markers).
+
 ## 0.4.0
 
 ### Minor Changes
@@ -28,22 +37,11 @@
 
 - Forward Anthropic **summarized** thinking under default `trace` (`reasoning_summary`), coalesced from `thinking_delta` / completed thinking blocks and secret-scanned before write
 - Request `thinking: { type: "adaptive", display: "summarized" }` from the Claude provider when agenttrace visibility is `trace`+ (SDK options now call `agentTraceQueryOptions()` — no duplicated env parse in the patch snippet)
-- Add opt-in `trace_full` firehose: tool inputs, tool result snippets, subagent text (`forwardSubagentText`), faster coalesce, 500 events/turn cap
-- Keep `trace_reasoning` as a compat alias of `trace` (no raw CoT — not available from the API)
-- Pass active visibility into the container writer sanitize + per-turn cap path
-- Never forward thinking signatures or `redacted_thinking` payloads
-- Cap coalesced thinking buffer before flush; pair `tool_end.tool` with the tool name from `tool_start` (not the opaque tool_use id)
-
-### Patch Changes
-
-- [#8](https://github.com/Artificer-Innovations/nanoclaw-agenttrace/pull/8) — Fix the Claude SDK options splice silently disabling summarized thinking and `trace_full` subagent forwarding. Replace the invalid synchronous `require()` of ESM `observe.js` with a bridge registered during the existing awaited import, log once when an enabled install is missing the bridge, and self-heal stale splice blocks during upgrade. Add a regression test that executes the splice as a real ES module.
+- Opt-in `trace_full` firehose for tool inputs/results and subagent transcripts
+- Higher per-turn event cap under `trace_full` (500)
 
 ## 0.1.0
 
-- Initial release: host delivery action, container Claude observe patch, silence keepalives (#1440), `/add-agenttrace` skill
-- Redaction via `@sanity-labs/secret-scan@1.1.0` (same library as Skein)
-- Session-scoped destination resolution (ignore content routing fields)
-- Dispatch ladder catches `publishActivity`/`clearActivity` failures and falls through
-- Writer tracks message ids per turn (no LIKE full-table prune) and caps orphan turn maps
-- Forward `AGENTTRACE_*` into containers via `container-runner` (observe is fail-closed without it)
-- CI typecheck includes `packages/host` via `type-fixtures/` stubs for NanoClaw host modules (shared + cli + host)
+### Minor Changes
+
+- Initial published release of nanoclaw-agenttrace.

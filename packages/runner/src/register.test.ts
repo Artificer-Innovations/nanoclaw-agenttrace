@@ -16,6 +16,7 @@ describe('agenttrace hosthook registration', () => {
       providerMessageObserver: 1,
       providerQueryOptions: 1,
       inboundBatchObserver: 1,
+      providerQueryStart: 1,
     });
     expect(
       hosthooks.runProviderQueryOptionsContributors({ provider: 'claude' }),

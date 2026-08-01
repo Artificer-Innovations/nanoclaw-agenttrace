@@ -58,7 +58,13 @@ export interface AgentActivityEvent {
 
 export const AGENTTRACE_ACTION = 'agenttrace_activity' as const;
 
-export const SILENCE_KEEPALIVE_THRESHOLDS_MS = [30_000, 90_000, 180_000] as const;
+export const SILENCE_KEEPALIVE_THRESHOLDS_MS = [
+  10_000,
+  20_000,
+  30_000,
+  90_000,
+  180_000,
+] as const;
 
 const MAX_EVENT_TEXT_BYTES = 4_000;
 

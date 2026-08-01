@@ -8,25 +8,31 @@ import {
   registerInboundBatchObserver,
   registerProviderMessageObserver,
   registerProviderQueryOptionsContributor,
-} from '../hosthooks.js';
+  registerProviderQueryStartObserver,
+} from "../hosthooks.js";
 import {
+  agentTraceOnProviderQueryStart,
   agentTraceQueryOptions,
   observeClaudeSdkMessage,
-} from './observe.js';
-import { agentTraceOnInboundBatch } from './poll-hook.js';
+} from "./observe.js";
+import { agentTraceOnInboundBatch } from "./poll-hook.js";
 
-registerProviderMessageObserver('agenttrace', (message, context) => {
-  if (context.provider === 'claude') observeClaudeSdkMessage(message);
+registerProviderMessageObserver("agenttrace", (message, context) => {
+  if (context.provider === "claude") observeClaudeSdkMessage(message);
 });
 
-registerProviderQueryOptionsContributor('agenttrace', (context) => {
-  if (context.provider !== 'claude') return {};
+registerProviderQueryOptionsContributor("agenttrace", (context) => {
+  if (context.provider !== "claude") return {};
   return {
     includePartialMessages: true,
     ...agentTraceQueryOptions(),
   };
 });
 
-registerInboundBatchObserver('agenttrace', ({ messageIds }) => {
+registerInboundBatchObserver("agenttrace", ({ messageIds }) => {
   agentTraceOnInboundBatch([...messageIds]);
+});
+
+registerProviderQueryStartObserver("agenttrace", (context) => {
+  agentTraceOnProviderQueryStart(context);
 });

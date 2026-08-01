@@ -8,8 +8,10 @@ import {
   registerInboundBatchObserver,
   registerProviderMessageObserver,
   registerProviderQueryOptionsContributor,
+  registerProviderQueryStartObserver,
 } from '../hosthooks.js';
 import {
+  agentTraceOnProviderQueryStart,
   agentTraceQueryOptions,
   observeClaudeSdkMessage,
 } from './observe.js';
@@ -29,4 +31,8 @@ registerProviderQueryOptionsContributor('agenttrace', (context) => {
 
 registerInboundBatchObserver('agenttrace', ({ messageIds }) => {
   agentTraceOnInboundBatch([...messageIds]);
+});
+
+registerProviderQueryStartObserver('agenttrace', (context) => {
+  agentTraceOnProviderQueryStart(context);
 });

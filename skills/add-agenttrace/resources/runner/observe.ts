@@ -321,12 +321,64 @@ export function observeClaudeSdkMessage(message: unknown): void {
   }
 }
 
-/** Mark a new user turn (call when processing a new inbound batch). */
-export function beginAgentTraceTurn(inboundId?: string): void {
+/**
+ * Prepare a new turn id without emitting Working… yet.
+ * Call at inbound-batch claim; emit turn_start from provider_query start.
+ */
+export function prepareAgentTraceTurn(inboundId?: string): void {
   flushThinkingBuffer();
   toolNamesById.clear();
   setAgentTraceTurnId(inboundId || `turn-${Date.now()}`);
+}
+
+/** Mark a new user turn and emit Working… (tests / back-compat). */
+export function beginAgentTraceTurn(inboundId?: string): void {
+  prepareAgentTraceTurn(inboundId);
   emit('turn_start', 'Working…');
+}
+
+const HARNESS_START_COPY: Record<string, { fresh: string; resume: string }> = {
+  claude: {
+    fresh: 'Starting Claude Code…',
+    resume: 'Restoring conversation…',
+  },
+  codex: {
+    fresh: 'Starting Codex…',
+    resume: 'Restoring conversation…',
+  },
+  opencode: {
+    fresh: 'Starting OpenCode…',
+    resume: 'Restoring conversation…',
+  },
+};
+
+/**
+ * Hosthooks provider query-start observer — sticky ladder across the dark gap.
+ */
+export function agentTraceOnProviderQueryStart(context: {
+  provider: string;
+  stage: 'provider_query' | 'sdk_query' | 'session_init';
+  hasContinuation?: boolean;
+}): void {
+  if (visibility === 'off') return;
+  if (context.stage === 'provider_query') {
+    emit('turn_start', 'Working…');
+    return;
+  }
+  if (context.stage === 'session_init') {
+    emit('task_progress', 'Session ready…', { phase: 'session_ready' });
+    return;
+  }
+  if (context.stage === 'sdk_query') {
+    const copy = HARNESS_START_COPY[context.provider] ?? {
+      fresh: 'Starting agent…',
+      resume: 'Restoring conversation…',
+    };
+    const resume = Boolean(context.hasContinuation);
+    emit('task_progress', resume ? copy.resume : copy.fresh, {
+      phase: resume ? 'resuming_session' : 'booting_sdk',
+    });
+  }
 }
 
 /** SDK options contributed synchronously through nanoclaw-hosthooks. */
