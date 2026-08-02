@@ -108,9 +108,12 @@ Requires `nanoclaw-hosthooks@^0.2.0` (`features.providerQueryStart`).
 | Stage             | When                                     | Guest status                                           |
 | ----------------- | ---------------------------------------- | ------------------------------------------------------ |
 | _(inbound batch)_ | Messages claimed                         | Prepare turn id only (no Working…)                     |
-| `provider_query`  | Immediately before `provider.query`      | `turn_start` → Working…                                |
+| `provider_query`  | Immediately before `provider.query`      | `turn_start` → Working… (arms dark-gap stall timer)    |
 | `sdk_query`       | Harness boot (Claude / Codex / OpenCode) | `task_progress` → Starting… or Restoring conversation… |
 | `session_init`    | ProviderEvent `{ type: 'init' }`         | `task_progress` → Session ready…                       |
+| _(stall)_         | No `sdk_query` / `session_init` within 90s after `provider_query` | `error` → Agent did not start (`phase: stall_provider_query`) |
+
+The stall timer clears on `sdk_query`, `session_init`, turn prepare, or turn end. Override duration with `AGENTTRACE_DARK_GAP_STALL_MS` (ms).
 
 Claude-only (via `observeClaudeSdkMessage` on SDK system messages already flowing through hosthooks):
 
