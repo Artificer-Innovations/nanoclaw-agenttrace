@@ -18,8 +18,8 @@ importers:
         specifier: ^22.15.30
         version: 22.20.1
       nanoclaw-hosthooks:
-        specifier: github:Artificer-Innovations/nanoclaw-hosthooks#feat/provider-query-start
-        version: https://codeload.github.com/Artificer-Innovations/nanoclaw-hosthooks/tar.gz/80d0f13e1b3aba864e7846112ec6c7aa425d084e
+        specifier: ^0.2.0
+        version: 0.2.0
       typescript:
         specifier: ^5.8.3
         version: 5.9.3
@@ -728,9 +728,8 @@ packages:
   ms@2.1.3:
     resolution: {integrity: sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==}
 
-  nanoclaw-hosthooks@https://codeload.github.com/Artificer-Innovations/nanoclaw-hosthooks/tar.gz/80d0f13e1b3aba864e7846112ec6c7aa425d084e:
-    resolution: {tarball: https://codeload.github.com/Artificer-Innovations/nanoclaw-hosthooks/tar.gz/80d0f13e1b3aba864e7846112ec6c7aa425d084e}
-    version: 0.2.0
+  nanoclaw-hosthooks@0.2.0:
+    resolution: {integrity: sha512-s6yNyYoTloaPdpCAW5IoaPHZSkUe8q1g4Qp1lxX3UkGqM7FJS8LiXmvcQWl33VpMGvvNzfWMhZLuSxNi1nBOKA==}
     engines: {node: '>=20'}
     hasBin: true
 
@@ -1663,7 +1662,7 @@ snapshots:
 
   ms@2.1.3: {}
 
-  nanoclaw-hosthooks@https://codeload.github.com/Artificer-Innovations/nanoclaw-hosthooks/tar.gz/80d0f13e1b3aba864e7846112ec6c7aa425d084e: {}
+  nanoclaw-hosthooks@0.2.0: {}
 
   nanoid@3.3.16: {}
 
