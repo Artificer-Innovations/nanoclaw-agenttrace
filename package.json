@@ -60,7 +60,7 @@
     "@changesets/changelog-github": "^0.5.1",
     "@changesets/cli": "^2.29.4",
     "@types/node": "^22.15.30",
-    "nanoclaw-hosthooks": "github:Artificer-Innovations/nanoclaw-hosthooks#feat/provider-query-start",
+    "nanoclaw-hosthooks": "github:Artificer-Innovations/nanoclaw-hosthooks#develop",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"
   },
