@@ -114,7 +114,7 @@ Requires `nanoclaw-hosthooks@^0.2.0` (`features.providerQueryStart`).
 | `session_init`    | ProviderEvent `{ type: 'init' }`         | `task_progress` → Session ready…                       |
 | _(stall)_         | No `sdk_query` / `session_init` within 90s after `provider_query` | `error` → Agent did not start (`phase: stall_provider_query`) |
 
-The stall timer clears on `sdk_query`, `session_init`, turn prepare, or turn end. Override duration with `AGENTTRACE_DARK_GAP_STALL_MS` (ms).
+The stall timer clears on `sdk_query`, `session_init`, turn prepare, or turn end. Override duration with `AGENTTRACE_DARK_GAP_STALL_MS` (ms). Host silence keepalives skip a session after a delivered `error` or `turn_end` (until a later non-terminal activity) so “Still running…” cannot overwrite the terminal sticky.
 
 Claude-only (via `observeClaudeSdkMessage` on SDK system messages already flowing through hosthooks):
 

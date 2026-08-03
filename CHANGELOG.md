@@ -9,7 +9,7 @@
 - Surface Claude SDK startup system messages already on the observer path: `hook_started` (session/setup hooks), `status: requesting|compacting` (waiting for model), and failed `mcp_servers` on `init`.
 - Lower silence keepalive thresholds to `[10s, 20s, 30s, 90s, 180s]`.
 - Require `nanoclaw-hosthooks@^0.2.0` (`features.providerQueryStart` + new call-site markers).
-- Bound the dark-gap sticky window: if `sdk_query` / `session_init` never follow `provider_query`, emit `error` “Agent did not start” (`phase: stall_provider_query`) after 90s so a hung harness is distinguishable from slow-but-alive progress.
+- Bound the dark-gap sticky window: if `sdk_query` / `session_init` never follow `provider_query`, emit `error` “Agent did not start” (`phase: stall_provider_query`) after 90s so a hung harness is distinguishable from slow-but-alive progress. Host silence keepalives skip sessions after a delivered `error` / `turn_end` so “Still running…” cannot overwrite the terminal sticky.
 
 ## 0.4.0
 
