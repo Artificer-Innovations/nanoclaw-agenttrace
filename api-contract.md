@@ -99,6 +99,7 @@ When webchat implements `publishActivity`:
 | `AGENTTRACE_ENABLED`            | `false`    | Master switch                                                                        |
 | `AGENTTRACE_DEFAULT_VISIBILITY` | `trace`    | `off` \| `status` \| `trace` \| `trace_reasoning` (alias of `trace`) \| `trace_full` |
 | `AGENTTRACE_SILENCE_KEEPALIVE`  | `true`     | #1440 silence timers at 10s / 20s / 30s / 90s / 180s                                 |
+| `AGENTTRACE_DARK_GAP_STALL_MS`  | `90000`    | Max ms after `provider_query` before sticky `error` if harness never starts          |
 | `AGENTTRACE_VISIBILITY`         | (inherits) | Optional container override                                                          |
 
 ## Provider query-start ladder (hosthooks)
