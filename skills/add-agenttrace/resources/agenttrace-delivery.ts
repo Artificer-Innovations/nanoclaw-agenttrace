@@ -27,7 +27,7 @@ export function registerAgentTraceDelivery(): void {
         return;
       }
 
-      noteActivitySeen(session.id);
+      noteActivitySeen(session.id, Date.now(), { kind: event.kind });
 
       const dest = resolveDestination(session);
       if (!dest) {

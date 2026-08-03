@@ -37,6 +37,7 @@ beforeEach(() => {
 
 afterEach(() => {
   delete process.env.AGENTTRACE_VISIBILITY;
+  delete process.env.AGENTTRACE_DARK_GAP_STALL_MS;
 });
 
 function lastEvent(): {
@@ -411,6 +412,61 @@ describe("provider query-start ladder", () => {
     });
     expect(lastEvent().summary).toBe("Session ready…");
     expect(lastEvent().phase).toBe("session_ready");
+  });
+
+  it("emits stalled error if sdk_query never follows provider_query", async () => {
+    process.env.AGENTTRACE_DARK_GAP_STALL_MS = "30";
+    const {
+      agentTraceOnProviderQueryStart,
+      prepareAgentTraceTurn,
+      refreshAgentTraceVisibility,
+    } = await import("./observe.js");
+    refreshAgentTraceVisibility();
+    prepareAgentTraceTurn("msg-stall");
+    writes.length = 0;
+
+    agentTraceOnProviderQueryStart({
+      provider: "claude",
+      stage: "provider_query",
+    });
+    expect(lastEvent().kind).toBe("turn_start");
+    expect(lastEvent().summary).toBe("Working…");
+
+    await Bun.sleep(60);
+    expect(lastEvent().kind).toBe("error");
+    expect(lastEvent().summary).toBe("Agent did not start");
+    expect(lastEvent().phase).toBe("stall_provider_query");
+  });
+
+  it("cancels dark-gap stall when sdk_query arrives", async () => {
+    process.env.AGENTTRACE_DARK_GAP_STALL_MS = "30";
+    const {
+      agentTraceOnProviderQueryStart,
+      prepareAgentTraceTurn,
+      refreshAgentTraceVisibility,
+    } = await import("./observe.js");
+    refreshAgentTraceVisibility();
+    prepareAgentTraceTurn("msg-no-stall");
+    writes.length = 0;
+
+    agentTraceOnProviderQueryStart({
+      provider: "claude",
+      stage: "provider_query",
+    });
+    agentTraceOnProviderQueryStart({
+      provider: "claude",
+      stage: "sdk_query",
+      hasContinuation: false,
+    });
+    expect(lastEvent().summary).toBe("Starting Claude Code…");
+
+    await Bun.sleep(60);
+    expect(lastEvent().kind).toBe("task_progress");
+    expect(lastEvent().summary).toBe("Starting Claude Code…");
+    expect(writes.every((w) => {
+      const kind = JSON.parse((w as { content: string }).content).kind;
+      return kind !== "error";
+    })).toBe(true);
   });
 });
 

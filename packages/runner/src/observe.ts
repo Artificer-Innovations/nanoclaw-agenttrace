@@ -22,12 +22,20 @@ let visibility: ActivityVisibility = readVisibility();
 
 let thinkingBuf = "";
 let thinkingTimer: ReturnType<typeof setTimeout> | null = null;
+/** Armed after `provider_query` until `sdk_query` / `session_init` (or turn end). */
+let darkGapTimer: ReturnType<typeof setTimeout> | null = null;
 /** True while the current stream content block is a thinking block. */
 let streamingThinking = false;
 /** tool_use id → name so tool_end can pair with tool_start in the UI. */
 const toolNamesById = new Map<string, string>();
 /** Hard cap on coalesced thinking before an early flush (malformed streams). */
 const MAX_THINKING_BUF_CHARS = 16_000;
+/**
+ * Max wait after Working… before flipping to a terminal error if the harness
+ * never reaches sdk_query / session_init. Override with AGENTTRACE_DARK_GAP_STALL_MS
+ * (tests). Default matches the mid silence-keepalive threshold.
+ */
+export const DARK_GAP_STALL_MS_DEFAULT = 90_000;
 
 /**
  * Fail-closed: emit nothing unless AGENTTRACE_ENABLED is truthy.
@@ -84,6 +92,34 @@ function clearThinkingTimer(): void {
     clearTimeout(thinkingTimer);
     thinkingTimer = null;
   }
+}
+
+function darkGapStallMs(): number {
+  const raw = (process.env.AGENTTRACE_DARK_GAP_STALL_MS || "").trim();
+  if (raw) {
+    const n = Number(raw);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return DARK_GAP_STALL_MS_DEFAULT;
+}
+
+function clearDarkGapTimer(): void {
+  if (darkGapTimer) {
+    clearTimeout(darkGapTimer);
+    darkGapTimer = null;
+  }
+}
+
+function armDarkGapTimer(): void {
+  clearDarkGapTimer();
+  const armedTurn = turnId;
+  const wait = darkGapStallMs();
+  darkGapTimer = setTimeout(() => {
+    darkGapTimer = null;
+    if (turnId !== armedTurn || visibility === "off") return;
+    emit("error", "Agent did not start", { phase: "stall_provider_query" });
+  }, wait);
+  darkGapTimer.unref?.();
 }
 
 function flushThinkingBuffer(): void {
@@ -429,6 +465,7 @@ export function observeClaudeSdkMessage(message: unknown): void {
 
     if (type === "result") {
       flushThinkingBuffer();
+      clearDarkGapTimer();
       toolNamesById.clear();
       emit("turn_end", "Done");
     }
@@ -443,6 +480,7 @@ export function observeClaudeSdkMessage(message: unknown): void {
  */
 export function prepareAgentTraceTurn(inboundId?: string): void {
   flushThinkingBuffer();
+  clearDarkGapTimer();
   toolNamesById.clear();
   setAgentTraceTurnId(inboundId || `turn-${Date.now()}`);
 }
@@ -470,6 +508,8 @@ const HARNESS_START_COPY: Record<string, { fresh: string; resume: string }> = {
 
 /**
  * Hosthooks provider query-start observer — sticky ladder across the dark gap.
+ * Arms a stall timer on `provider_query` so a hung harness does not leave
+ * “Working…” (and keepalives) looking like progress forever.
  */
 export function agentTraceOnProviderQueryStart(context: {
   provider: string;
@@ -479,13 +519,16 @@ export function agentTraceOnProviderQueryStart(context: {
   if (visibility === "off") return;
   if (context.stage === "provider_query") {
     emit("turn_start", "Working…");
+    armDarkGapTimer();
     return;
   }
   if (context.stage === "session_init") {
+    clearDarkGapTimer();
     emit("task_progress", "Session ready…", { phase: "session_ready" });
     return;
   }
   if (context.stage === "sdk_query") {
+    clearDarkGapTimer();
     const copy = HARNESS_START_COPY[context.provider] ?? {
       fresh: "Starting agent…",
       resume: "Restoring conversation…",

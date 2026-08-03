@@ -99,6 +99,7 @@ When webchat implements `publishActivity`:
 | `AGENTTRACE_ENABLED`            | `false`    | Master switch                                                                        |
 | `AGENTTRACE_DEFAULT_VISIBILITY` | `trace`    | `off` \| `status` \| `trace` \| `trace_reasoning` (alias of `trace`) \| `trace_full` |
 | `AGENTTRACE_SILENCE_KEEPALIVE`  | `true`     | #1440 silence timers at 10s / 20s / 30s / 90s / 180s                                 |
+| `AGENTTRACE_DARK_GAP_STALL_MS`  | `90000`    | Max ms after `provider_query` before sticky `error` if harness never starts          |
 | `AGENTTRACE_VISIBILITY`         | (inherits) | Optional container override                                                          |
 
 ## Provider query-start ladder (hosthooks)
@@ -108,9 +109,12 @@ Requires `nanoclaw-hosthooks@^0.2.0` (`features.providerQueryStart`).
 | Stage             | When                                     | Guest status                                           |
 | ----------------- | ---------------------------------------- | ------------------------------------------------------ |
 | _(inbound batch)_ | Messages claimed                         | Prepare turn id only (no Working…)                     |
-| `provider_query`  | Immediately before `provider.query`      | `turn_start` → Working…                                |
+| `provider_query`  | Immediately before `provider.query`      | `turn_start` → Working… (arms dark-gap stall timer)    |
 | `sdk_query`       | Harness boot (Claude / Codex / OpenCode) | `task_progress` → Starting… or Restoring conversation… |
 | `session_init`    | ProviderEvent `{ type: 'init' }`         | `task_progress` → Session ready…                       |
+| _(stall)_         | No `sdk_query` / `session_init` within 90s after `provider_query` | `error` → Agent did not start (`phase: stall_provider_query`) |
+
+The stall timer clears on `sdk_query`, `session_init`, turn prepare, or turn end. Override duration with `AGENTTRACE_DARK_GAP_STALL_MS` (ms). Host silence keepalives skip a session after a delivered `error` or `turn_end` (until a later non-terminal activity) so “Still running…” cannot overwrite the terminal sticky.
 
 Claude-only (via `observeClaudeSdkMessage` on SDK system messages already flowing through hosthooks):
 

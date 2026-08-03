@@ -12,12 +12,30 @@ import fs from 'node:fs';
 
 const lastActivityAt = new Map<string, number>();
 const firedThresholds = new Map<string, Set<number>>();
+/** Sessions that already showed a terminal sticky status — skip keepalives. */
+const terminalSessions = new Map<string, true>();
 
 let timer: ReturnType<typeof setInterval> | null = null;
 
-export function noteActivitySeen(sessionId: string, atMs: number = Date.now()): void {
+export function noteActivitySeen(
+  sessionId: string,
+  atMs: number = Date.now(),
+  meta?: { kind?: string },
+): void {
   lastActivityAt.set(sessionId, atMs);
   firedThresholds.delete(sessionId);
+  // Guest stall errors (and turn_end) must not be overwritten by
+  // "Still running — Working" keepalives while processing_ack is still set.
+  if (meta?.kind === 'error' || meta?.kind === 'turn_end') {
+    terminalSessions.set(sessionId, true);
+  } else if (meta?.kind) {
+    terminalSessions.delete(sessionId);
+  }
+}
+
+/** True after a delivered `error` / `turn_end` until a non-terminal activity arrives. */
+export function isSilenceTerminal(sessionId: string): boolean {
+  return terminalSessions.has(sessionId);
 }
 
 /** Drop bookkeeping for sessions that are no longer active. */
@@ -27,6 +45,9 @@ export function evictInactiveSilenceState(activeIds: ReadonlySet<string>): void 
   }
   for (const id of firedThresholds.keys()) {
     if (!activeIds.has(id)) firedThresholds.delete(id);
+  }
+  for (const id of terminalSessions.keys()) {
+    if (!activeIds.has(id)) terminalSessions.delete(id);
   }
 }
 
@@ -46,6 +67,7 @@ export function stopSilenceKeepalive(): void {
   }
   lastActivityAt.clear();
   firedThresholds.clear();
+  terminalSessions.clear();
 }
 
 async function tick(): Promise<void> {
@@ -67,6 +89,7 @@ async function tick(): Promise<void> {
 
     // Heartbeat alone is not enough — warm idle containers stay heartbeating
     // between turns. Only emit #1440 keepalives while a turn is in flight.
+    if (isSilenceTerminal(session.id)) continue;
     const midTurn = readMidTurnState(session.agent_group_id, session.id);
     if (!midTurn.active) continue;
 
