@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('./env.js', () => ({
-  readEnvFile: vi.fn(() => ({})),
+const { readEnvFile } = vi.hoisted(() => ({
+  readEnvFile: vi.fn(() => ({}) as Record<string, string>),
 }));
 
-import { readEnvFile } from './env.js';
+vi.mock('./env.js', () => ({
+  readEnvFile,
+}));
+
 import { agentTraceContainerEnv } from './agenttrace-env.js';
 
 describe('agentTraceContainerEnv', () => {
