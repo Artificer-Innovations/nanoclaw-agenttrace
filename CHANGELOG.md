@@ -1,4 +1,11 @@
-# Changelog
+# nanoclaw-agenttrace
+
+## 0.5.1
+
+### Patch Changes
+
+- Release line aligned with NanoClaw 2026.10.1-rc.2 package matrix.
+
 
 ## 0.5.0
 
